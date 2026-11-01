@@ -1,0 +1,88 @@
+services:
+  # Neo4j stores the schema graph and exposes its browser/query ports locally.
+  neo4j:
+    image: neo4j:5-community
+    restart: unless-stopped
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"
+      - "${NEO4J_BOLT_PORT:-7687}:7687"
+    environment:
+      NEO4J_AUTH: ${NEO4J_USER}/${NEO4J_PASSWORD}
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider --quiet http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Ollama keeps downloaded model weights in a persistent volume.
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  # Pull the configured model once after Ollama reports healthy.
+  ollama-init:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      LLM_MODEL: ${LLM_MODEL}
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["ollama pull \"$$LLM_MODEL\""]
+    restart: "no"
+
+  # Flask communicates with Neo4j and Ollama over the Compose network.
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile.agent
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEO4J_HTTP_URL: http://neo4j:7474/db/neo4j/query/v2
+      OLLAMA_BASE_URL: http://ollama:11434/v1
+      DATA_DIR: /app/data
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    ports:
+      - "${AGENT_PORT:-5000}:5000"
+    expose:
+      - "5000"
+    volumes:
+      - ./data:/app/data
+
+  # Apache serves the PHP UI and proxies browser requests to Flask.
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+    environment:
+      AGENT_URL: http://agent:5000
+    depends_on:
+      agent:
+        condition: service_started
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  ollama_data:

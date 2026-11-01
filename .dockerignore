@@ -1,0 +1,10 @@
+.git
+.env
+.venv
+venv
+__pycache__
+.pytest_cache
+*.pyc
+data/*.sqlite
+data/*_working.sqlite
+benchmarks/results/*

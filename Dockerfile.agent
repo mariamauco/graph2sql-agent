@@ -1,0 +1,19 @@
+# Keep Python dependencies inside the agent image, not on the host.
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+# Install the provider and web dependencies during image creation.
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY app.py config.py ./
+COPY services ./services
+
+EXPOSE 5000
+
+# Flask listens on the fixed internal Compose port.
+CMD ["sh", "-c", "flask --app app run --host=0.0.0.0 --port=${PORT:-5000}"]

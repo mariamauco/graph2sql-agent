@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+.env
+data/*.sqlite
+data/*_working.sqlite
+data/spider_databases/
+scripts/results/*
+!scripts/results/.gitkeep

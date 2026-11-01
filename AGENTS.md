@@ -2,6 +2,18 @@
 
 This document is the authoritative engineering guide for AI coding agents and developers working on this repository. Read and follow these specifications before creating or modifying any code.
 
+## Current Implementation Status
+
+This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
+
+- `services/db_service.py`: schema extraction, sandbox management, and SQL execution are stubs.
+- `services/graph_service.py`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are stubs.
+- `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
+- `app.py`: only scaffold database, health, and setup responses exist; QA and Edit endpoints are not implemented.
+- `frontend/`: the PHP UI currently supports only the initial database/setup shell; QA, Edit Mode, graph inspection, SQL results, and telemetry views are incomplete.
+- `scripts/run_benchmarks.py`: benchmark modes and evaluation metrics are not implemented.
+- `tests/`: current tests are import smoke tests and do not verify the required behavior.
+
 ---
 
 ## 1. Project Overview & Core Value Proposition
@@ -75,70 +87,56 @@ Maintain this flat, modular project structure:
 ├── AGENTS.md                  # Instructions for AI coding agents
 ├── plan.md                    # Architectural plan and motivation
 ├── docker-compose.yml         # Runs neo4j:5-community exposing HTTP port 7474
+├── Dockerfile.agent           # sets up and runs flask app
 ├── .env.example               # Template environment variables
 ├── requirements.txt           # Python dependencies
 ├── app.py                     # Main Flask application & REST route definitions
 ├── config.py                  # Environment & model configuration loader
+├── frontend/
+│   ├── api.php                # Calls agent server
+│   ├── index.php              # Runs frontend
+│   ├── style.css              # style for frontend
+│   └── Dockerfile             # exposes frontend port
 ├── services/
 │   ├── __init__.py
 │   ├── db_service.py          # SQLite PRAGMA extractor, sandbox manager, SQL executor
 │   ├── graph_service.py       # Neo4j HTTP Query API v2 client & Cypher builders
 │   └── agent_service.py       # LLM wrapper, QA pipeline, Edit pipeline
-├── templates/
-│   └── index.html             # Single-page Workbench UI (Tailwind + Alpine/Vanilla JS)
-├── data/                      # Source Spider .sqlite files & *_working.sqlite sandboxes
-├── benchmarks/
-│   ├── run_benchmarks.py      # Automated Test A / Test B / Test C evaluation script
-│   └── results/               # Exported CSV/JSON metrics for RQ1-RQ4
-└── tests/
-    ├── test_db_service.py
-    ├── test_graph_service.py
-    └── test_agent_flows.py
+├── data/                      # Spider release, selected source DBs, and working sandboxes
+│   └── spider_databases/      # Downloaded Spider dataset; keep runtime DBs at data/ root
+└── scripts/
+  ├── download_spider_data.sh # Downloads Spider dataset and databases
+  ├── select_spider_db.sh
+  ├── setup_dev.sh
+  ├── run_benchmarks.py      # Automated Test A / Test B / Test C evaluation script
+  └── results/               # Exported CSV/JSON metrics for RQ1-RQ4
 ```
 
 ---
 
 ## 4. Environment & Development Commands
 
-### Environment Variables (`.env`)
-```ini
-# Neo4j HTTP Query API v2
-NEO4J_HTTP_URL=http://localhost:7474/db/neo4j/query/v2
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=password123
-
-# LLM Configuration
-# Options: "ollama", "openai", "anthropic"
-LLM_PROVIDER=ollama
-LLM_MODEL=qwen2.5-coder:7b
-OLLAMA_BASE_URL=http://localhost:11434/v1
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Telemetry (LangSmith)
-LANGCHAIN_TRACING_V2=true
-LANGCHAIN_API_KEY=lsv2_...
-LANGCHAIN_PROJECT=kg-text2sql-benchmark
-
-# Data directory
-DATA_DIR=./data
-```
+### Environment Variables in `.env`
 
 ### Common Commands
-- **Start Neo4j Container:** `docker compose up -d`
+- Startup services: `docker compose up --build`
+- **Run services with  Container:** `docker compose up -d` 
+- for using ollama, add `--profile ollama`
 - **Verify Neo4j HTTP Endpoint:** `curl -I http://localhost:7474`
 - **Install Python Dependencies:** `pip install -r requirements.txt`
 - **Run Flask Server:** `python app.py` (listens on `http://localhost:5000`)
 - **Run Unit Tests:** `pytest tests/`
-- **Run Benchmarks (A/B/C):** `python benchmarks/run_benchmarks.py --db concert_singer --limit 50`
+- **Run Benchmarks (A/B/C):** `python scripts/run_benchmarks.py --db concert_singer --limit 50`
 
 ---
 
 ## 5. Core Module Specifications & Implementation Rules
 
 ### 5.1 `services/db_service.py` (Database Connector & Sandbox)
+**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+
 1. **Never Corrupt Source `.sqlite` Files:**
-   - Store original Spider `.sqlite` files in `data/{db_name}.sqlite`.
+  - Store the downloaded Spider release under `data/spider_databases/`, but copy selected original SQLite files to `data/{db_name}.sqlite` for runtime use.
    - On setup or before any Edit Mode operation, copy `data/{db_name}.sqlite` to `data/{db_name}_working.sqlite` if it does not already exist (and provide a `reset_sandbox(db_name)` helper).
    - Execute both QA and Edit queries against `data/{db_name}_working.sqlite` so newly inserted rows or altered columns in Edit Mode are immediately visible to follow-up QA Mode queries.
 2. **Metadata Extraction (`extract_schema_metadata(db_name_or_uri)`):**
@@ -156,6 +154,8 @@ DATA_DIR=./data
 ---
 
 ### 5.2 `services/graph_service.py` (Neo4j HTTP Query API v2 Client)
+**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+
 1. **Strict HTTP Requirement:**
    - Communicate with Neo4j **exclusively via HTTP POST** to `NEO4J_HTTP_URL` (`http://localhost:7474/db/neo4j/query/v2`) using `requests.post`. Do **not** require the `neo4j` binary Bolt Python driver.
    - Strip newlines or join multi-line Cypher strings with spaces before sending, and always pass dynamic values via the `"parameters"` dictionary (never string-interpolate user input into Cypher):
@@ -196,6 +196,8 @@ DATA_DIR=./data
 ---
 
 ### 5.3 `services/agent_service.py` (LLM Orchestrator for QA & Edit Flows)
+**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+
 1. **Unified LLM Client:**
    - Use the `openai` Python SDK (or LangChain's `ChatOpenAI` / `ChatAnthropic`) configured via `config.py`. Note that Ollama supports the OpenAI SDK natively when `base_url="http://localhost:11434/v1"` and `api_key="ollama"`.
    - Record prompt tokens, completion tokens, and total latency (`time.perf_counter()`) on every request so the UI and benchmark runner always receive telemetry even if LangSmith is offline.
@@ -211,6 +213,28 @@ DATA_DIR=./data
      - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, `ALTER TABLE`, or `CREATE TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER`, `CREATE`, or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
      - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_service.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
    - Return a structured change report (`sql_executed`, `rows_affected`, `graph_updated`, `summary`).
+---
+
+### 5.4 Frontend
+**Implementation status: PARTIAL.** The PHP/Apache shell and proxy exist, but the complete workbench workflow is not implemented.
+
+1. **Stack:** Use PHP served by Apache with HTML, CSS, and browser JavaScript. Do not introduce React, TypeScript, Node.js services, or a frontend build pipeline.
+2. **Files:** Keep the browser UI in `frontend/index.php` and `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
+3. **Service boundary:** The browser calls `api.php`; `api.php` forwards approved requests to the Flask `agent` service using the Compose-injected `AGENT_URL`. Do not expose internal service hostnames or credentials to browser JavaScript.
+4. **API proxy:** Keep the proxy limited to the documented Flask routes, preserve upstream status codes, return JSON errors for unavailable services, and avoid hard-coding environment-specific host ports.
+5. **Container:** Build the frontend with `frontend/Dockerfile` from `php:8.3-apache`. The host-facing port is configured by `FRONTEND_PORT` in `.env`; Apache continues to use port `80` inside the container.
+
+### 5.5 Docker Setup
+**Implementation status: PARTIAL.** The Compose services, profiles, volumes, and development scripts exist, but successful container startup does not mean the agent behavior is complete.
+
+1. **Compose services:** `docker-compose.yml` must manage `neo4j`, `ollama`, `ollama-init`, `agent` (Flask), and `frontend` (PHP/Apache).
+2. **Build boundaries:** `Dockerfile.agent` installs Python dependencies from `requirements.txt` and runs Flask on internal port `5000`. The frontend image installs PHP/Apache. Do not require host Python, PHP, Neo4j, or Ollama installations for the Compose workflow.
+3. **Environment:** Read credentials, provider selection, model name, host-facing ports, and telemetry settings from `.env`. Keep `.env` untracked and keep only safe placeholders in `.env.example`. Internal Compose ports and service URLs belong in Compose service configuration, not duplicated as environment variables.
+4. **Dependencies:** Neo4j must be healthy before the agent starts. When the `ollama` profile is enabled, `ollama-init` waits for Ollama health before pulling `LLM_MODEL`. The agent must work with either the local Ollama profile or a cloud provider without requiring the other.
+5. **Persistent storage:** Preserve the named `neo4j_data`, `neo4j_logs`, and `ollama_data` volumes. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
+6. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep edit-mode working copies separate from source databases.
+7. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
+8. **Provider switching:** Keep the LLM client behind the existing agent abstraction. `LLM_PROVIDER=ollama` uses the Compose `ollama` service and requires `docker compose --profile ollama up -d`; `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. Switching providers must not require changing Dockerfiles or frontend code.
 
 ---
 
@@ -312,7 +336,7 @@ Response:
 
 ---
 
-## 7. Benchmarking & Evaluation Framework (`benchmarks/run_benchmarks.py`)
+## 7. Benchmarking & Evaluation Framework (`scripts/run_benchmarks.py`)
 
 The benchmark script evaluates three modes across Spider benchmark questions and logs metrics for **RQ1 (Tokens)**, **RQ2 (Multi-table Join Execution Accuracy)**, and **RQ3 (Latency)**:
 
