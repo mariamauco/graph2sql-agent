@@ -41,7 +41,7 @@ def extract_schema(db_path):
                 }
                 data_type = (column["type"] or "").upper()
                 # Keep small, non-sensitive text domains available to the LLM.
-                if data_type in {"TEXT", "VARCHAR", "CHAR"} and not sensitive.search(column_name):
+                if data_type.startswith(("TEXT", "VARCHAR", "CHAR")) and not sensitive.search(column_name):
                     values = connection.execute(
                         f"SELECT DISTINCT {quote(column_name)} AS value "
                         f"FROM {table_sql_name} "
