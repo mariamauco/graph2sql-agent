@@ -88,18 +88,21 @@ def reset_sandbox(db_name, data_dir) -> Path:
     shutil.copy2(source, working)
     return working
 
-
-def execute_read_sql(db_path, sql) -> list[dict[str, Any]]:
-    """Execute a read-only query against the working database."""
-    # Keep this helper read-only; the timeout also limits lock waiting.
-    if not sql.lstrip().lower().startswith("select"):
-        raise ValueError("Only SELECT queries are allowed")
+def provide_working(db_path):
     source = Path(db_path)
     working = source if source.stem.endswith("_working") else source.with_name(
         f"{source.stem}_working{source.suffix}"
     )
     if not working.exists():
         shutil.copy2(source, working)
+    return working
+
+def execute_read_sql(db_path, sql) -> list[dict[str, Any]]:
+    """Execute a read-only query against the working database."""
+    # Keep this helper read-only; the timeout also limits lock waiting.
+    if not sql.lstrip().lower().startswith("select"):
+        raise ValueError("Only SELECT queries are allowed")
+    working = provide_working(db_path)
     with sqlite3.connect(working, timeout=5) as connection:
         connection.row_factory = sqlite3.Row
         return [dict(row) for row in connection.execute(sql)]
@@ -110,12 +113,7 @@ def execute_write_sql(db_path, sql) -> int:
     # Restrict this boundary to the mutation types allowed by Edit Mode.
     if not re.match(r"^\s*(INSERT|UPDATE|DELETE|ALTER)\b", sql, re.I):
         raise ValueError("Only INSERT, UPDATE, DELETE, and ALTER queries are allowed")
-    source = Path(db_path)
-    working = source if source.stem.endswith("_working") else source.with_name(
-        f"{source.stem}_working{source.suffix}"
-    )
-    if not working.exists():
-        shutil.copy2(source, working)
+    working = provide_working(db_path)
     with sqlite3.connect(working, timeout=5) as connection:
         cursor = connection.execute(sql)
         return max(cursor.rowcount, 0)
