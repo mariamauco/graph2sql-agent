@@ -6,7 +6,6 @@ This document is the authoritative engineering guide for AI coding agents and de
 
 This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
 
-- `services/db_service.py`: schema extraction, sandbox management, and SQL execution are stubs.
 - `services/graph_service.py`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are stubs.
 - `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
 - `app.py`: only scaffold database, health, and setup responses exist; QA and Edit endpoints are not implemented.
@@ -133,7 +132,7 @@ Maintain this flat, modular project structure:
 ## 5. Core Module Specifications & Implementation Rules
 
 ### 5.1 `services/db_service.py` (Database Connector & Sandbox)
-**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+**Implementation status: COMPLETE for local SQLite extraction, sandbox reset, and guarded read/write helpers.** Remote SQLAlchemy support remains a stretch goal.
 
 1. **Never Corrupt Source `.sqlite` Files:**
   - Store the downloaded Spider release under `data/spider_databases/`, but copy selected original SQLite files to `data/{db_name}.sqlite` for runtime use.
