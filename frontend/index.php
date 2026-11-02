@@ -37,6 +37,7 @@
         const data = await response.json();
         database.replaceChildren(...(data.databases || []).map((name) => {
           const option = document.createElement('option');
+          console.log(name);
           option.value = name;
           option.textContent = name;
           return option;

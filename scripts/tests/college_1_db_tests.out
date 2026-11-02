@@ -1,0 +1,16 @@
+# Run these commands from the repository root.
+source .venv/bin/activate
+
+# Confirm the selected database and inspect its schema.
+python3 -c 'from services.db_service import extract_schema; m=extract_schema("data/college_1.sqlite"); print(m)'
+
+# Run a read query that returns actual college_1 student data.
+python3 -c 'from services.db_service import execute_read_sql; print(execute_read_sql("data/college_1.sqlite", "SELECT STU_NUM, STU_LNAME, STU_FNAME, STU_GPA FROM STUDENT LIMIT 3"))'
+
+# Execute a harmless write that affects no rows and verify the working copy exists.
+python3 -c 'from pathlib import Path; from services.db_service import execute_write_sql; print(execute_write_sql("data/college_1.sqlite", "UPDATE STUDENT SET STU_HRS = STU_HRS WHERE 1 = 0")); print(Path("data/college_1_working.sqlite").exists())'
+
+# Reset the working copy from the original benchmark database.
+python3 -c 'from services.db_service import reset_sandbox; print(reset_sandbox("college_1", "data"))'
+
+deactivate

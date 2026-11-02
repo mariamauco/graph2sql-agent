@@ -9,7 +9,7 @@ From the repository root:
 
 ```bash
 ./scripts/setup_dev.sh
-./scripts/select_spider_db.sh concert_singer
+./scripts/select_spider_db.sh <database_name>
 ```
 
 Then open `http://localhost:8080`.

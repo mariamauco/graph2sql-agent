@@ -23,3 +23,4 @@ fi
 
 # Build images and start the local Ollama profile in the background.
 docker compose --profile ollama up --build -d
+./scripts/select_spider_db.sh concert_singer # adds concert_singer to the working databases
