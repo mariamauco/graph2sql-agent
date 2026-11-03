@@ -20,10 +20,11 @@ body {
 .eyebrow { color: var(--accent); font: 700 0.75rem/1.2 Arial, sans-serif; letter-spacing: 0.14em; text-transform: uppercase; }
 h1 { max-width: 10ch; margin: 0.3rem 0 1rem; font-size: clamp(3rem, 9vw, 6.5rem); line-height: 0.9; }
 .lede { max-width: 34rem; color: var(--muted); font-size: 1.2rem; }
-.panel { display: flex; align-items: end; gap: 1rem; margin-top: 4rem; padding: 1.25rem; background: var(--panel); border: 1px solid var(--line); box-shadow: 12px 12px 0 #dce5d5; }
+.panel { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 1rem; margin-top: 4rem; padding: 1.25rem; background: var(--panel); border: 1px solid var(--line); box-shadow: 12px 12px 0 #dce5d5; }
 .field { flex: 1; }
 label { display: block; margin-bottom: 0.4rem; color: var(--muted); font: 700 0.75rem Arial, sans-serif; text-transform: uppercase; }
 select, button { width: 100%; min-height: 2.8rem; border: 1px solid var(--line); padding: 0.65rem 0.8rem; font: inherit; }
 button { width: auto; min-width: 9rem; color: #fff; background: var(--accent); border-color: var(--accent); cursor: pointer; }
 .status { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 0.9rem; }
-@media (max-width: 560px) { .panel { display: block; } button { margin-top: 1rem; } }
+#graph { grid-column: 1 / -1; min-height: 28rem; border-top: 1px solid var(--line); margin-top: 0.5rem; }
+@media (max-width: 560px) { .panel { display: block; } button { margin-top: 1rem; } #graph { min-height: 22rem; margin-top: 1rem; } }

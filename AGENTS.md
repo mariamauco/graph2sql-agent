@@ -6,10 +6,10 @@ This document is the authoritative engineering guide for AI coding agents and de
 
 This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
 
-- `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are partially implemented; the facade is `graph_service.py`.
+- `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, aliases, and memory persistence are implemented; live Neo4j integration coverage remains to be expanded.
 - `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
-- `app.py`: only scaffold database, health, and setup responses exist; QA and Edit endpoints are not implemented.
-- `frontend/`: the PHP UI currently supports only the initial database/setup shell; QA, Edit Mode, graph inspection, SQL results, and telemetry views are incomplete.
+- `app.py`: database listing, health, and graph setup responses are implemented; QA and Edit endpoints are not implemented.
+- `frontend/`: PHP setup, Cytoscape graph inspection, and source-database selection are implemented; QA, Edit Mode, SQL results, and telemetry views are incomplete.
 - `scripts/run_benchmarks.py`: benchmark modes and evaluation metrics are not implemented.
 - `tests/`: current tests are import smoke tests and do not verify the required behavior.
 
@@ -94,6 +94,7 @@ Maintain this flat, modular project structure:
 ├── frontend/
 │   ├── api.php                # Calls agent server
 │   ├── index.php              # Runs frontend
+│   ├── graph.js               # Cytoscape graph rendering
 │   ├── style.css              # style for frontend
 │   └── Dockerfile             # exposes frontend port
 ├── services/
@@ -105,8 +106,9 @@ Maintain this flat, modular project structure:
 │   │   ├── graph_query.py     # Subgraph retrieval and query memory
 │   │   └── graph_service.py   # Public graph-service facade
 │   └── agent_service.py       # LLM wrapper, QA pipeline, Edit pipeline
-├── data/                      # Spider release, selected source DBs, and working sandboxes
+├── data/                      # Spider release and selected source DBs
 │   └── spider_databases/      # Downloaded Spider dataset; keep runtime DBs at data/ root
+│   └── working/                # Generated working database copies
 └── scripts/
   ├── download_spider_data.sh # Downloads Spider dataset and databases
   ├── select_spider_db.sh
@@ -140,8 +142,8 @@ Maintain this flat, modular project structure:
 
 1. **Never Corrupt Source `.sqlite` Files:**
   - Store the downloaded Spider release under `data/spider_databases/`, but copy selected original SQLite files to `data/{db_name}.sqlite` for runtime use.
-   - On setup or before any Edit Mode operation, copy `data/{db_name}.sqlite` to `data/{db_name}_working.sqlite` if it does not already exist (and provide a `reset_sandbox(db_name)` helper).
-   - Execute both QA and Edit queries against `data/{db_name}_working.sqlite` so newly inserted rows or altered columns in Edit Mode are immediately visible to follow-up QA Mode queries.
+  - On setup or before any Edit Mode operation, use `provide_working(db_path)` to create or return `data/working/{db_name}_working.sqlite`; pass `reset=True` when the working copy must be restored from the source.
+  - Execute both QA and Edit queries against `data/working/{db_name}_working.sqlite` so newly inserted rows or altered columns in Edit Mode are immediately visible to follow-up QA Mode queries.
 2. **Metadata Extraction (`extract_schema_metadata(db_name_or_uri)`):**
    - Query `sqlite_master` for all user tables (`type='table' AND name NOT LIKE 'sqlite_%'`).
    - Run `PRAGMA table_info('{table}')` to extract column `name`, `type`, `notnull`, `dflt_value`, and `pk`.
@@ -157,7 +159,7 @@ Maintain this flat, modular project structure:
 ---
 
 ### 5.2 `services/graph/` (Neo4j HTTP Query API v2 and Graph Pipeline)
-**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+**Implementation status: PARTIAL.** HTTP, graph setup, subgraph retrieval, and memory helpers are implemented; live Neo4j integration coverage and end-to-end agent use remain.
 
 1. **Strict HTTP Requirement:**
    - Communicate with Neo4j **exclusively via HTTP POST** to `NEO4J_HTTP_URL` (`http://localhost:7474/db/neo4j/query/v2`) using `requests.post`. Do **not** require the `neo4j` binary Bolt Python driver.
@@ -222,7 +224,7 @@ Maintain this flat, modular project structure:
 **Implementation status: PARTIAL.** The PHP/Apache shell and proxy exist, but the complete workbench workflow is not implemented.
 
 1. **Stack:** Use PHP served by Apache with HTML, CSS, and browser JavaScript. Do not introduce React, TypeScript, Node.js services, or a frontend build pipeline.
-2. **Files:** Keep the browser UI in `frontend/index.php` and `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
+2. **Files:** Keep the browser UI in `frontend/index.php`, graph rendering in `frontend/graph.js`, and styles in `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
 3. **Service boundary:** The browser calls `api.php`; `api.php` forwards approved requests to the Flask `agent` service using the Compose-injected `AGENT_URL`. Do not expose internal service hostnames or credentials to browser JavaScript.
 4. **API proxy:** Keep the proxy limited to the documented Flask routes, preserve upstream status codes, return JSON errors for unavailable services, and avoid hard-coding environment-specific host ports.
 5. **Container:** Build the frontend with `frontend/Dockerfile` from `php:8.3-apache`. The host-facing port is configured by `FRONTEND_PORT` in `.env`; Apache continues to use port `80` inside the container.
@@ -235,7 +237,7 @@ Maintain this flat, modular project structure:
 3. **Environment:** Read credentials, provider selection, model name, host-facing ports, and telemetry settings from `.env`. Keep `.env` untracked and keep only safe placeholders in `.env.example`. Internal Compose ports and service URLs belong in Compose service configuration, not duplicated as environment variables.
 4. **Dependencies:** Neo4j must be healthy before the agent starts. When the `ollama` profile is enabled, `ollama-init` waits for Ollama health before pulling `LLM_MODEL`. The agent must work with either the local Ollama profile or a cloud provider without requiring the other.
 5. **Persistent storage:** Preserve the named `neo4j_data`, `neo4j_logs`, and `ollama_data` volumes. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
-6. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep edit-mode working copies separate from source databases.
+6. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep generated edit-mode working copies under `data/working/`.
 7. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
 8. **Provider switching:** Keep the LLM client behind the existing agent abstraction. `LLM_PROVIDER=ollama` uses the Compose `ollama` service and requires `docker compose --profile ollama up -d`; `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. Switching providers must not require changing Dockerfiles or frontend code.
 

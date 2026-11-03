@@ -29,13 +29,19 @@ development stack:
 
 ```bash
 source .venv/bin/activate
-docker compose --profile ollama up #--build -d # to restart build
+docker compose --profile ollama up --build -d
 ```
 
 
 For direct Flask testing, open `http://localhost:5000/` or check
 `http://localhost:5000/api/health`. The PHP frontend remains available at
 `http://localhost:8080`.
+
+Select a root `data/*.sqlite` source in the frontend and click **Build graph**.
+The request travels through PHP to `POST /api/setup`; Flask extracts SQLite
+metadata, builds Neo4j, and returns Cytoscape-compatible `nodes` and `edges`.
+Generated edit copies are stored under `data/working/` and are not listed as
+source databases.
 
 ## Components
 
@@ -44,7 +50,8 @@ For direct Flask testing, open `http://localhost:5000/` or check
 - **Ollama profile:** Starts Ollama and downloads `LLM_MODEL`; omit the profile when using a cloud provider.
 - **Flask agent:** Extracts database metadata, retrieves graph context, calls the LLM, and executes SQL.
 - **PHP frontend:** Provides the browser UI and proxies requests to Flask.
-- **`data/`:** Contains the downloaded Spider release plus selected runtime SQLite databases.
+- **`data/`:** Contains the downloaded Spider release and selected source SQLite databases; generated working copies live in `data/working/`.
+- **Graph canvas:** `frontend/graph.js` renders the nodes and edges returned by the Flask setup endpoint with Cytoscape.
 - **`scripts/`:** Contains setup, database selection, download, and benchmark commands.
 
 ## Useful Commands

@@ -5,11 +5,12 @@ Set up the Flask application and multi-service `docker-compose.yml` for Neo4j, O
     
 - **Acceptance Criteria:**
     - [x] `docker-compose.yml` runs services and persistent volumes.
-    - [x] Store the downloaded Spider release under `data/spider_databases/` and copy selected runtime databases to the `data/` root.
+    - [x] Store the downloaded Spider release under `data/spider_databases/`, copy selected runtime databases to the `data/` root, and keep working copies in `data/working/`.
     - [ ] Implement `db_service.py` with:
         - `extract_schema(db_path)`: Extracts tables (`sqlite_master`), columns/types/PKs (`PRAGMA table_info`), foreign keys (`PRAGMA foreign_key_list`), table row counts, and safe low-cardinality sample values.
         - `execute_read_sql(db_path, sql)`: Runs read-only `SELECT` queries with a timeout.
-        - `execute_write_sql(db_path, sql)`: Runs `INSERT`/`UPDATE`/`DELETE`/`ALTER` on a working copy of the `.sqlite` file so original benchmark files aren't corrupted.
+        - `provide_working(db_path, reset=False)`: Creates or returns `data/working/{db_name}_working.sqlite`; `reset=True` restores it from the original source.
+        - `execute_write_sql(db_path, sql)`: Runs `INSERT`/`UPDATE`/`DELETE`/`ALTER` on the working copy so original benchmark files aren't corrupted.
         - _(Stretch Hook)_ Accept an optional SQLAlchemy URI (`postgresql://...` or `mysql://...`) in `db_service.py` so a remotely hosted DB can be added from the UI later.
 
 ## issue 2 - setup flow

@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Graph2SQL Agent</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://unpkg.com/cytoscape/dist/cytoscape.min.js"></script>
+  <script src="graph.js" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -24,10 +26,11 @@
       </div>
       <button id="setup" type="button">Build graph</button>
       <p id="status" class="status" role="status">Checking the agent service...</p>
+      <div id="graph" aria-label="Database schema graph"></div>
     </section>
   </main>
   <script>
-      // Keep browser code small; backend routing stays in api.php.
+    // Keep API calls here; graph rendering lives in graph.js.
     const database = document.querySelector('#database');
     const status = document.querySelector('#status');
 
@@ -37,7 +40,6 @@
         const data = await response.json();
         database.replaceChildren(...(data.databases || []).map((name) => {
           const option = document.createElement('option');
-          console.log(name);
           option.value = name;
           option.textContent = name;
           return option;
@@ -58,6 +60,7 @@
       });
       const data = await response.json();
       status.textContent = data.status || data.error || 'Setup finished.';
+      if (response.ok) renderGraph(data);
     });
 
     loadDatabases();

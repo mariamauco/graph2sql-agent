@@ -7,7 +7,7 @@ from flask import Flask, jsonify, render_template, request
 
 from config import settings
 from services.db_service import extract_schema
-from services.graph.graph_service import build_graph
+from services.graph.graph_service import build_graph, graph_elements
 
 
 def create_app() -> Flask:
@@ -44,6 +44,7 @@ def create_app() -> Flask:
             # SQLite metadata feeds the Neo4j graph builder.
             metadata = extract_schema(db_path)
             summary = build_graph(db_path.stem, metadata)
+            nodes, edges = graph_elements(db_path.stem, metadata)
         except sqlite3.Error as error:
             return jsonify({"error": f"SQLite setup failed: {error}"}), 400
         except RuntimeError as error:
@@ -52,7 +53,13 @@ def create_app() -> Flask:
                 "hint": "Check that Neo4j is running and reachable.",
             }), 503
 
-        return jsonify({"status": "ready", "db_name": db_path.stem, **summary})
+        return jsonify({
+            "status": "ready",
+            "db_name": db_path.stem,
+            "nodes": nodes,
+            "edges": edges,
+            **summary,
+        })
 
     @app.errorhandler(503)
     def service_unavailable(error):
