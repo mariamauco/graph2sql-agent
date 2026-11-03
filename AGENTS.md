@@ -6,7 +6,7 @@ This document is the authoritative engineering guide for AI coding agents and de
 
 This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
 
-- `services/graph_service.py`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are stubs.
+- `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are partially implemented; the facade is `graph_service.py`.
 - `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
 - `app.py`: only scaffold database, health, and setup responses exist; QA and Edit endpoints are not implemented.
 - `frontend/`: the PHP UI currently supports only the initial database/setup shell; QA, Edit Mode, graph inspection, SQL results, and telemetry views are incomplete.
@@ -56,7 +56,7 @@ All backend logic runs in a **single Python Flask server (`app.py`)** that commu
 |     - Reads `/data/*.sqlite` via `PRAGMA table_info` & `foreign_key_list`|
 |     - Executes Read SQL (QA Mode) & Write SQL on sandbox copy (Edit)    |
 |                                                                         |
-|  2. `graph_service.py` (Neo4j HTTP Client)                              |
+|  2. `services/graph/` (Neo4j HTTP Client and Graph Pipeline)             |
 |     - Builds `:Database`, `:Table`, `:Column`, & `:FOREIGN_KEY` graph   |
 |     - Runs Full-Text Search + `allShortestPaths` to extract subgraph    |
 |     - Persists `:VerifiedQuery` & `:SEMANTIC_JOIN` edges                |
@@ -99,7 +99,11 @@ Maintain this flat, modular project structure:
 ├── services/
 │   ├── __init__.py
 │   ├── db_service.py          # SQLite PRAGMA extractor, sandbox manager, SQL executor
-│   ├── graph_service.py       # Neo4j HTTP Query API v2 client & Cypher builders
+│   ├── graph/
+│   │   ├── graph_client.py    # Neo4j HTTP Query API v2 client
+│   │   ├── graph_build.py     # Graph nodes, relationships, and indexes
+│   │   ├── graph_query.py     # Subgraph retrieval and query memory
+│   │   └── graph_service.py   # Public graph-service facade
 │   └── agent_service.py       # LLM wrapper, QA pipeline, Edit pipeline
 ├── data/                      # Spider release, selected source DBs, and working sandboxes
 │   └── spider_databases/      # Downloaded Spider dataset; keep runtime DBs at data/ root
@@ -152,7 +156,7 @@ Maintain this flat, modular project structure:
 
 ---
 
-### 5.2 `services/graph_service.py` (Neo4j HTTP Query API v2 Client)
+### 5.2 `services/graph/` (Neo4j HTTP Query API v2 and Graph Pipeline)
 **Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
 
 1. **Strict HTTP Requirement:**
@@ -351,6 +355,6 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 
 1. **No Node.js Services:** Keep the backend 100% in Python (`Flask`). Do not scaffold Express/Node servers.
 2. **No PostgreSQL Dependency Required for Local Dev:** Default to SQLite `.sqlite` files in `./data`. Only use SQLAlchemy for optional remote URIs.
-3. **Always Use Neo4j HTTP Query API v2:** All Neo4j communication in `graph_service.py` must go through HTTP `POST` to `/db/neo4j/query/v2` on port `7474`.
+3. **Always Use Neo4j HTTP Query API v2:** All Neo4j communication in `services/graph/graph_client.py` must go through HTTP `POST` to `/db/neo4j/query/v2` on port `7474`.
 4. **Extract SQL Cleanly from LLM Responses:** Local models (`qwen2.5-coder:7b`) often wrap SQL in ` ```sql ... ``` ` markdown fences. Always strip markdown code fences before passing SQL to `sqlite3`.
 5. **Graceful Degradation:** If Neo4j or Ollama is unreachable, return a clear JSON error message (`{"error": "...", "hint": "Run docker compose up -d"}`) with HTTP 503 rather than an unhandled stack trace.
