@@ -3,6 +3,7 @@
 import re
 from difflib import get_close_matches
 
+from config import settings
 from services.aliases_map import DB_ALIASES
 from .graph_client import run_cypher_http
 
@@ -94,6 +95,12 @@ def _upsert_foreign_key(db_name, table_name, foreign_key):
 
 def build_graph(db_name, metadata):
 	"""Create/update nodes, relationships, and the full-text index."""
+	cache_path = settings.data_dir / "working" / f"{db_name}_graph.json"
+	try:
+		cache_path.unlink()
+	except FileNotFoundError:
+		pass
+
 	# Create nodes before relationships so every endpoint exists.
 	upsert_database(db_name)
 	for table in metadata.get("tables", []):

@@ -11,7 +11,10 @@ REPOSITORY = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPOSITORY))
 
 from services.db_service import execute_read_sql, extract_schema
-from services.graph.graph_service import build_graph, get_subgraph, graph_elements, synthesize_answer
+from services.agent_service import synthesize_answer
+from services.graph.graph_build import build_graph
+from services.graph.graph_client import graph_elements
+from services.graph.graph_query import get_subgraph
 
 
 DATASET = REPOSITORY / "data" / "spider_databases" / "dev.json"
@@ -93,7 +96,7 @@ def main():
 
     show("7. LLM answer synthesis", {
         "answer": synthesize_answer(
-            entry["question"], gold_sql, rows, subgraph["prompt_context_str"]
+            entry["question"], rows
         )
     })
 

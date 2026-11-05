@@ -20,10 +20,10 @@ This repository is currently a scaffold. The following features are **incomplete
 We are building an AI agent that performs natural language querying (**QA Mode**) and database/schema mutations (**Edit Mode**) over relational databases using a **Neo4j Knowledge Graph** accessed via HTTP.
 
 ### Why This Beats Raw Schema Prompting (The 5 Core Pillars)
-Whenever you implement or modify `db_service.py`, `graph_service.py`, or `agent_service.py`, you must preserve and reinforce these five mechanisms:
+Whenever you implement or modify `db_service.py`, `graph_build.py`, `graph_query.py`, or `agent_service.py`, you must preserve and reinforce these five mechanisms:
 
 1. **Pre-Computed Shortest-Path `JOIN` Chains (`allShortestPaths`):**
-   - Once anchor `:Table` nodes are matched from a user prompt, Neo4j runs Cypher `allShortestPaths` between those anchor tables (up to $k=3$ hops) to automatically discover intermediate junction tables and outputs an **explicit, pre-verified `JOIN` path string** (e.g., `artists.id = albums.artist_id -> albums.id = tracks.album_id`).
+   - Once anchor `:Table` nodes are matched from a user prompt, Neo4j runs Cypher `allShortestPaths` between those anchor tables (up to `k=5` matched tables) to automatically discover intermediate junction tables and outputs an **explicit, pre-verified `JOIN` path string** (e.g., `artists.id = albums.artist_id -> albums.id = tracks.album_id`).
 2. **Safe Metadata & Distinct Value Profiling on `:Column` Nodes:**
    - During graph setup, the schema extractor inspects low-cardinality text/categorical columns ($\text{COUNT(DISTINCT col)} \le 10$) that do not match sensitive column names (e.g., `password`, `ssn`, `email`, `phone`, `secret`) and stores `distinct_values: ["COMP", "PEND", "CANC"]` directly on the `:Column` node in Neo4j.
 3. **Full-Text Indexing + Semantic Aliasing:**
@@ -70,8 +70,8 @@ All backend logic runs in a **single Python Flask server (`app.py`)** that commu
                    v                                   v
 +------------------------------------+   +--------------------------------+
 |   Neo4j 5.x (Docker or AuraDB)     |   |   LLM Engine (Configurable)    |
-|   - Port 7474 (HTTP Query API v2)  |   |   - Local: Ollama (Qwen2.5-7B) |
-|   - Persistent Graph & Query Cache |   |   - Cloud: GPT-4o / Claude 3.5 |
+|   - Port 7474 (HTTP Query API v2)  |   |   - Default: OpenAI-compatible |
+|   - Persistent Graph & Query Cache |   |     Luna (`gpt-6-luna`)            |
 +------------------------------------+   +--------------------------------+
 ```
 
@@ -104,7 +104,6 @@ Maintain this flat, modular project structure:
 │   │   ├── graph_client.py    # Neo4j HTTP Query API v2 client
 │   │   ├── graph_build.py     # Graph nodes, relationships, and indexes
 │   │   ├── graph_query.py     # Subgraph retrieval and query memory
-│   │   └── graph_service.py   # Public graph-service facade
 │   └── agent_service.py       # LLM wrapper, QA pipeline, Edit pipeline
 ├── data/                      # Spider release and selected source DBs
 │   └── spider_databases/      # Downloaded Spider dataset; keep runtime DBs at data/ root
@@ -204,19 +203,19 @@ Maintain this flat, modular project structure:
 **Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
 
 1. **Unified LLM Client:**
-   - Use the `openai` Python SDK (or LangChain's `ChatOpenAI` / `ChatAnthropic`) configured via `config.py`. Note that Ollama supports the OpenAI SDK natively when `base_url="http://localhost:11434/v1"` and `api_key="ollama"`.
+   - Use the `openai` Python SDK configured via `config.py`. The default provider is OpenAI-compatible Luna (`LLM_MODEL=gpt-6-luna`); omit `temperature` because Luna only supports its default value.
    - Record prompt tokens, completion tokens, and total latency (`time.perf_counter()`) on every request so the UI and benchmark runner always receive telemetry even if LangSmith is offline.
 2. **Flow 1: Setup (`POST /api/setup`):**
-   - `db_service.extract_schema_metadata(db_name)` $\rightarrow$ `graph_service.build_graph(db_name, metadata)` $\rightarrow$ return graph summary (`tables_count`, `columns_count`, `edges_count`, `status: "ready"`).
+   - `db_service.extract_schema_metadata(db_name)` $\rightarrow$ `graph_build.build_graph(db_name, metadata)` $\rightarrow$ return graph summary (`tables_count`, `columns_count`, `edges_count`, `status: "ready"`).
 3. **Flow 2: QA Mode (`POST /api/agent/qa`):**
-   - `prompt` $\rightarrow$ `subgraph = graph_service.get_subgraph(db_name, prompt)` $\rightarrow$ LLM generates a single SQLite `SELECT` query using `subgraph.prompt_context_str` $\rightarrow$ `db_service.execute_read_sql(db_name, sql)`.
+   - `prompt` $\rightarrow$ `subgraph = graph_query.get_subgraph(db_name, prompt, k=5)` $\rightarrow$ LLM generates a single SQLite `SELECT` query using `subgraph.prompt_context_str` $\rightarrow$ `db_service.execute_read_sql(db_name, sql)`.
    - **Self-Correction Retry:** If SQLite raises an `OperationalError` (e.g., `no such column` or syntax error), feed the failed SQL + SQLite error message + `subgraph.prompt_context_str` back to the LLM once to repair the query.
-   - **Memory Persistence:** If execution succeeds, call `graph_service.save_verified_query(db_name, prompt, sql, touched_tables)`.
-   - **Final Answer Construction:** Pass the user prompt + `subgraph.prompt_context_str` + returned SQL rows (truncated to 50 rows max for prompt safety) to the LLM to synthesize a concise natural language answer.
+   - **Memory Persistence:** If execution succeeds, call `graph_query.save_verified_query(db_name, prompt, sql, touched_tables)`.
+   - **Final Answer Construction:** Pass the user prompt + returned SQL rows (truncated to 50 rows max for prompt safety) to the LLM to synthesize a concise natural language answer; do not pass the SQL or graph context.
 4. **Flow 3: Edit Mode (`POST /api/agent/edit`):**
-   - `prompt` $\rightarrow$ `subgraph = graph_service.get_subgraph(db_name, prompt)` $\rightarrow$ LLM determines whether the user wants:
+   - `prompt` $\rightarrow$ `subgraph = graph_query.get_subgraph(db_name, prompt, k=5)` $\rightarrow$ LLM determines whether the user wants:
      - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, `ALTER TABLE`, or `CREATE TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER`, `CREATE`, or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
-     - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_service.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
+     - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_query.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
    - Return a structured change report (`sql_executed`, `rows_affected`, `graph_updated`, `summary`).
 ---
 
@@ -352,7 +351,7 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 
 - **`test_a` (Baseline Raw Schema):** No Neo4j calls. Dumps the entire database DDL (`CREATE TABLE ...` for every table in the database) directly into the LLM prompt.
 - **`test_b` (DB-Only Agent):** No Neo4j graph. The agent first calls a `list_tables` / `describe_tables` inspection step against SQLite before generating SQL.
-- **`test_c` (Neo4j Graph-Assisted Agent):** Full pipeline using `graph_service.get_subgraph()` with Full-Text search, `allShortestPaths` join chains, column distinct value samples, and `:VerifiedQuery` few-shot memory.
+- **`test_c` (Neo4j Graph-Assisted Agent):** Full pipeline using `graph_query.get_subgraph()` with Full-Text search, `allShortestPaths` join chains, column distinct value samples, and `:VerifiedQuery` few-shot memory.
 
 **Execution Accuracy (EX) Rule:** Compare the result set of the generated SQL (`set(tuple(row) for row in pred_rows)`) against the ground-truth Spider SQL result set on the same `.sqlite` database.
 
@@ -364,4 +363,4 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 2. **No PostgreSQL Dependency Required for Local Dev:** Default to SQLite `.sqlite` files in `./data`. Only use SQLAlchemy for optional remote URIs.
 3. **Always Use Neo4j HTTP Query API v2:** All Neo4j communication in `services/graph/graph_client.py` must go through HTTP `POST` to `/db/neo4j/query/v2` on port `7474`.
 4. **Extract SQL Cleanly from LLM Responses:** Local models (`qwen2.5-coder:7b`) often wrap SQL in ` ```sql ... ``` ` markdown fences. Always strip markdown code fences before passing SQL to `sqlite3`.
-5. **Graceful Degradation:** If Neo4j or Ollama is unreachable, return a clear JSON error message (`{"error": "...", "hint": "Run docker compose up -d"}`) with HTTP 503 rather than an unhandled stack trace.
+5. **Graceful Degradation:** If Neo4j or the configured LLM is unreachable, return a clear JSON error message (`{"error": "...", "hint": "Run docker compose up -d"}`) with HTTP 503 rather than an unhandled stack trace.

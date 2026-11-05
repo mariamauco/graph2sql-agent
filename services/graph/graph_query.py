@@ -1,12 +1,8 @@
 """Neo4j graph retrieval and query-memory helpers."""
 
 import hashlib
-import json
 import re
 
-from openai import OpenAI
-
-from config import settings
 from .graph_client import run_cypher_http
 
 
@@ -66,28 +62,6 @@ def _context_string(tables, joins, verified):
 		lines.append("Verified queries:")
 		lines.extend(f"- {query['prompt']}: {query['sql']}" for query in verified)
 	return "\n".join(lines)
-
-
-def synthesize_answer(prompt, sql, rows, graph_context=""):
-	"""Turn an executed SQL result into a concise user-facing answer."""
-	client = OpenAI(
-		api_key="ollama" if settings.llm_provider == "ollama" else settings.openai_api_key,
-		base_url=settings.ollama_base_url if settings.llm_provider == "ollama" else settings.openai_base_url,
-	)
-	# Give the model the question, executed query, result, and graph grounding.
-	content = "\n".join([
-		"Answer the user's question using only the executed SQL result.",
-		f"Question: {prompt}",
-		f"SQL: {sql}",
-		f"Rows: {json.dumps(rows[:50], default=str)}",
-		f"Graph context: {graph_context}",
-		"Be concise and do not invent values.",
-	])
-	response = client.chat.completions.create(
-		model=settings.llm_model,
-		messages=[{"role": "user", "content": content}],
-	)
-	return response.choices[0].message.content.strip()
 
 
 def get_subgraph(db_name, prompt, k=5):

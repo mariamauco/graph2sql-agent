@@ -1,21 +1,20 @@
 # Graph Service
 
-This package builds and queries the Neo4j schema graph. The public entry point is
-`graph_service.py`; implementation details are split into three small modules.
+This package builds and queries the Neo4j schema graph through focused modules.
 
 ## Modules
 
 ```text
-graph_client.py   Neo4j HTTP Query API v2 requests and response handling
+graph_client.py   Neo4j HTTP Query API v2 requests, response handling, and graph elements
 graph_build.py    Database, table, column, relationship, and index setup
 graph_query.py    Full-text search, shortest paths, context, and query memory
-graph_service.py  Public facade used by the rest of the application
 ```
 
-Callers should use the facade:
+Callers should import the focused graph functions:
 
 ```python
-from services.graph.graph_service import build_graph, get_subgraph
+from services.graph.graph_build import build_graph
+from services.graph.graph_query import get_subgraph
 ```
 
 ## Setup Flow

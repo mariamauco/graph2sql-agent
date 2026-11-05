@@ -3,13 +3,14 @@
 import re
 import sqlite3
 import time
+import json
 from typing import Any
 
 from openai import OpenAI
 
 from config import settings
 from services.db_service import execute_read_sql
-from services.graph.graph_service import get_subgraph, save_verified_query, synthesize_answer
+from services.graph.graph_query import get_subgraph, save_verified_query
 
 
 def _client():
@@ -42,6 +43,21 @@ def _generate_sql(prompt, context, error=None, failed_sql=None):
     )
     return _sql_from_response(response.choices[0].message.content)
 
+
+def synthesize_answer(prompt, rows):
+    """Turn executed SQL rows into a concise user-facing answer."""
+    response = _client().chat.completions.create(
+        model=settings.llm_model,
+        messages=[{"role": "user", "content": "\n".join([
+            "Answer the user's question using only these database results.",
+            f"Question: {prompt}",
+            f"Results: {json.dumps(rows[:50], default=str)}",
+            "Be concise and do not invent values.",
+        ])}],
+    )
+    return response.choices[0].message.content.strip()
+
+
 def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
     """Run the graph-assisted QA pipeline."""
     started = time.perf_counter()
@@ -58,7 +74,7 @@ def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
 
     touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
     save_verified_query(db_path.stem, prompt, sql, touched)
-    answer = synthesize_answer(prompt, sql, rows, subgraph["prompt_context_str"])
+    answer = synthesize_answer(prompt, rows)
     return {
         "answer": answer, "sql": sql, "rows": rows, "subgraph": subgraph,
         "telemetry": {"total_latency_ms": round((time.perf_counter() - started) * 1000, 2), "retried": retried},

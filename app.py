@@ -9,7 +9,8 @@ from flask import Flask, jsonify, render_template, request
 from config import settings
 from services.agent_service import answer_question
 from services.db_service import extract_schema
-from services.graph.graph_service import build_graph, graph_elements
+from services.graph.graph_build import build_graph
+from services.graph.graph_client import graph_elements
 
 
 def create_app() -> Flask:
