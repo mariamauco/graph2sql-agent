@@ -8,8 +8,8 @@ This repository is currently a scaffold. The following features are **incomplete
 
 - `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, aliases, and memory persistence are implemented; live Neo4j integration coverage remains to be expanded.
 - `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
-- `app.py`: database listing, health, and graph setup responses are implemented; QA and Edit endpoints are not implemented.
-- `frontend/`: PHP setup, Cytoscape graph inspection, and source-database selection are implemented; QA, Edit Mode, SQL results, and telemetry views are incomplete.
+- `app.py`: database listing, health, graph setup responses, and working-graph file reuse are implemented; QA and Edit endpoints are not implemented.
+- `frontend/`: PHP setup, force-graph inspection, and source-database selection are implemented; QA, Edit Mode, SQL results, and telemetry views are incomplete.
 - `scripts/run_benchmarks.py`: benchmark modes and evaluation metrics are not implemented.
 - `tests/`: current tests are import smoke tests and do not verify the required behavior.
 
@@ -94,7 +94,7 @@ Maintain this flat, modular project structure:
 ├── frontend/
 │   ├── api.php                # Calls agent server
 │   ├── index.php              # Runs frontend
-│   ├── graph.js               # Cytoscape graph rendering
+│   ├── graph.js               # force-graph rendering
 │   ├── style.css              # style for frontend
 │   └── Dockerfile             # exposes frontend port
 ├── services/
@@ -126,7 +126,7 @@ Maintain this flat, modular project structure:
 ### Common Commands
 - Startup services: `docker compose up --build`
 - **Run services with  Container:** `docker compose up -d` 
-- for using ollama, add `--profile ollama`
+- for using the configured cloud LLM, run `docker compose up -d`
 - **Verify Neo4j HTTP Endpoint:** `curl -I http://localhost:7474`
 - **Install Python Dependencies:** `pip install -r requirements.txt`
 - **Run Flask Server:** `python app.py` (listens on `http://localhost:5000`)
@@ -228,18 +228,20 @@ Maintain this flat, modular project structure:
 3. **Service boundary:** The browser calls `api.php`; `api.php` forwards approved requests to the Flask `agent` service using the Compose-injected `AGENT_URL`. Do not expose internal service hostnames or credentials to browser JavaScript.
 4. **API proxy:** Keep the proxy limited to the documented Flask routes, preserve upstream status codes, return JSON errors for unavailable services, and avoid hard-coding environment-specific host ports.
 5. **Container:** Build the frontend with `frontend/Dockerfile` from `php:8.3-apache`. The host-facing port is configured by `FRONTEND_PORT` in `.env`; Apache continues to use port `80` inside the container.
+6. **Graph caching:** Store the selected graph response in browser `localStorage` for immediate repeat renders. Do not add a server-memory graph cache. The browser may receive the graph from the Flask setup response, which is backed by `data/working/{db_name}_graph.json` when that artifact already exists.
 
 ### 5.5 Docker Setup
 **Implementation status: PARTIAL.** The Compose services, profiles, volumes, and development scripts exist, but successful container startup does not mean the agent behavior is complete.
 
-1. **Compose services:** `docker-compose.yml` must manage `neo4j`, `ollama`, `ollama-init`, `agent` (Flask), and `frontend` (PHP/Apache).
+1. **Compose services:** `docker-compose.yml` must manage `neo4j`, the optional Ollama compatibility profile, `agent` (Flask), and `frontend` (PHP/Apache).
 2. **Build boundaries:** `Dockerfile.agent` installs Python dependencies from `requirements.txt` and runs Flask on internal port `5000`. The frontend image installs PHP/Apache. Do not require host Python, PHP, Neo4j, or Ollama installations for the Compose workflow.
 3. **Environment:** Read credentials, provider selection, model name, host-facing ports, and telemetry settings from `.env`. Keep `.env` untracked and keep only safe placeholders in `.env.example`. Internal Compose ports and service URLs belong in Compose service configuration, not duplicated as environment variables.
-4. **Dependencies:** Neo4j must be healthy before the agent starts. When the `ollama` profile is enabled, `ollama-init` waits for Ollama health before pulling `LLM_MODEL`. The agent must work with either the local Ollama profile or a cloud provider without requiring the other.
-5. **Persistent storage:** Preserve the named `neo4j_data`, `neo4j_logs`, and `ollama_data` volumes. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
-6. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep generated edit-mode working copies under `data/working/`.
-7. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
-8. **Provider switching:** Keep the LLM client behind the existing agent abstraction. `LLM_PROVIDER=ollama` uses the Compose `ollama` service and requires `docker compose --profile ollama up -d`; `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. Switching providers must not require changing Dockerfiles or frontend code.
+4. **Dependencies:** Neo4j must be healthy before the agent starts. The default cloud provider uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL`; the optional `ollama` profile remains available for compatibility without being required.
+5. **Persistent storage:** Preserve the named `neo4j_data` and `neo4j_logs` volumes; `ollama_data` is only used by the optional compatibility profile. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
+7. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep generated edit-mode working copies and graph artifacts under `data/working/`.
+8. **Cache invalidation:** Any agent edit or schema rebuild must call `build_graph()`, which removes the matching `data/working/{db_name}_graph.json` before recomputing it. The frontend edit flow must also remove that database's `localStorage` graph entry.
+9. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
+10. **Provider switching:** Keep the LLM client behind the existing agent abstraction. The default `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. `LLM_PROVIDER=ollama` remains supported through `docker compose --profile ollama up -d`; switching providers must not require changing Dockerfiles or frontend code.
 
 ---
 
@@ -273,6 +275,9 @@ Response:
   "tables_count": 4,
   "columns_count": 21,
   "foreign_keys_count": 2,
+  "nodes": [],
+  "edges": [],
+  "cached": false,
   "latency_ms": 142.5
 }
 ```

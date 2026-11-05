@@ -1,16 +1,18 @@
 """Public graph-service facade."""
 
+from config import settings
+
 from .graph_build import build_graph as _build_graph
 from .graph_client import handle_neo4j_res, run_cypher_http
 from .graph_query import (
     add_semantic_join as _add_semantic_join,
     get_subgraph as _get_subgraph,
     save_verified_query as _save_verified_query,
+    synthesize_answer as _synthesize_answer,
 )
 
-
 def graph_elements(db_name, metadata):
-    """Convert SQLite metadata to Cytoscape's node/edge format."""
+    """Convert SQLite metadata to the frontend node/edge format."""
     nodes = []
     edges = []
     for table in metadata.get("tables", []):
@@ -43,14 +45,28 @@ def graph_elements(db_name, metadata):
     return nodes, edges
 
 
+def invalidate_graph_file(db_name):
+    # An edit flow can call this before rebuilding the graph artifact.
+    cache_path = settings.data_dir / "working" / f"{db_name}_graph.json"
+    try:
+        cache_path.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def build_graph(db_name, metadata):
     # Keep graph setup behind the original public function.
+    invalidate_graph_file(db_name)
     return _build_graph(db_name, metadata)
 
 
 def get_subgraph(db_name, prompt, k=5):
     # Keep prompt retrieval behind the original public function.
     return _get_subgraph(db_name, prompt, k)
+
+
+def synthesize_answer(prompt, sql, rows, graph_context=""):
+    return _synthesize_answer(prompt, sql, rows, graph_context)
 
 
 def save_verified_query(db_name, prompt, sql, touched_tables):

@@ -1,11 +1,13 @@
 """Flask entry point for the graph-assisted text-to-SQL workbench."""
 
+import json
 import sqlite3
 from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 
 from config import settings
+from services.agent_service import answer_question
 from services.db_service import extract_schema
 from services.graph.graph_service import build_graph, graph_elements
 
@@ -40,6 +42,10 @@ def create_app() -> Flask:
         if not db_path.is_file():
             return jsonify({"error": f"Database not found: {filename}"}), 404
 
+        cache_path = settings.data_dir / "working" / f"{filename}_graph.json"
+        if cache_path.is_file():
+            return jsonify({**json.loads(cache_path.read_text()), "cached": True})
+
         try:
             # SQLite metadata feeds the Neo4j graph builder.
             metadata = extract_schema(db_path)
@@ -52,18 +58,36 @@ def create_app() -> Flask:
                 "error": str(error),
                 "hint": "Check that Neo4j is running and reachable.",
             }), 503
+        except Exception as error:
+            return jsonify({"error": f"Graph setup failed: {error}"}), 500
 
-        return jsonify({
+        result = {
             "status": "ready",
             "db_name": db_path.stem,
             "nodes": nodes,
             "edges": edges,
             **summary,
-        })
+            "cached": False,
+        }
+        cache_path.parent.mkdir(exist_ok=True)
+        cache_path.write_text(json.dumps(result))
+        return jsonify(result)
 
     @app.errorhandler(503)
     def service_unavailable(error):
         return jsonify({"error": str(error), "hint": "Check Neo4j and LLM services."}), 503
+
+    @app.post("/api/agent/qa")
+    def qa():
+        payload = request.get_json(silent=True) or {}
+        if not payload.get("db_name") or not payload.get("prompt"):
+            return jsonify({"error": "db_name and prompt are required"}), 400
+        try:
+            return jsonify(answer_question(payload["db_name"], payload["prompt"]))
+        except sqlite3.Error as error:
+            return jsonify({"error": f"SQLite query failed: {error}"}), 400
+        except RuntimeError as error:
+            return jsonify({"error": str(error), "hint": "Check the configured LLM and Neo4j services."}), 503
 
     return app
 

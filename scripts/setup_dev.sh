@@ -21,6 +21,6 @@ if [ -z "$(find "$DOWNLOAD_DIR" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
     ./scripts/download_spider_data.sh
 fi
 
-# Build images and start the local Ollama profile in the background.
-docker compose --profile ollama up --build -d
+# Build images and start the cloud-LLM stack in the background.
+docker compose up --build -d
 ./scripts/select_spider_db.sh concert_singer # adds concert_singer to the working databases
