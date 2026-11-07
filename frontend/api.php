@@ -10,6 +10,7 @@ $routes = [
     'databases' => ['GET', '/api/databases'],
     'health' => ['GET', '/api/health'],
     'setup' => ['POST', '/api/setup'],
+    'qa' => ['POST', '/api/agent/qa'],
 ];
 
 if (!isset($routes[$action])) {

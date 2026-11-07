@@ -5,7 +5,7 @@ __pycache__/
 venv/
 .env
 data/*.sqlite
-data/*_working.sqlite
+data/working/
 data/spider_databases/
 scripts/results/*
 !scripts/results/.gitkeep

@@ -1,0 +1,1102 @@
+
+============ 1. Spider question ============
+{
+  "index": 0,
+  "db_id": "concert_singer",
+  "question": "How many singers do we have?",
+  "query": "SELECT count(*) FROM singer",
+  "parsed_sql": {
+    "from": {
+      "table_units": [
+        [
+          "table_unit",
+          1
+        ]
+      ],
+      "conds": []
+    },
+    "select": [
+      false,
+      [
+        [
+          3,
+          [
+            0,
+            [
+              0,
+              0,
+              false
+            ],
+            null
+          ]
+        ]
+      ]
+    ],
+    "where": [],
+    "groupBy": [],
+    "having": [],
+    "orderBy": [],
+    "limit": null,
+    "intersect": null,
+    "union": null,
+    "except": null
+  }
+}
+
+============ 2. SQLite metadata ============
+{
+  "tables": [
+    {
+      "name": "concert",
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "concert_ID",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": true,
+          "is_pk": true,
+          "is_nullable": true
+        },
+        {
+          "name": "concert_Name",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Auditions",
+            "Super bootcamp",
+            "Home Visits",
+            "Week 1",
+            "Week 2"
+          ]
+        },
+        {
+          "name": "Theme",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Free choice",
+            "Free choice 2",
+            "Bleeding Love",
+            "Wide Awake",
+            "Happy Tonight",
+            "Party All Night"
+          ]
+        },
+        {
+          "name": "Stadium_ID",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "1",
+            "2",
+            "10",
+            "9",
+            "7"
+          ]
+        },
+        {
+          "name": "Year",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "2014",
+            "2015"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "ref_table": "stadium",
+          "from_col": "Stadium_ID",
+          "to_col": "Stadium_ID"
+        }
+      ]
+    },
+    {
+      "name": "singer",
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "Singer_ID",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": true,
+          "is_pk": true,
+          "is_nullable": true
+        },
+        {
+          "name": "Name",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Joe Sharp",
+            "Timbaland",
+            "Justin Brown",
+            "Rose White",
+            "John Nizinik",
+            "Tribal King"
+          ]
+        },
+        {
+          "name": "Country",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Netherlands",
+            "United States",
+            "France"
+          ]
+        },
+        {
+          "name": "Song_Name",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "You",
+            "Dangerous",
+            "Hey Oh",
+            "Sun",
+            "Gentleman",
+            "Love"
+          ]
+        },
+        {
+          "name": "Song_release_year",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "1992",
+            "2008",
+            "2013",
+            "2003",
+            "2014",
+            "2016"
+          ]
+        },
+        {
+          "name": "Age",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        },
+        {
+          "name": "Is_male",
+          "type": "bool",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        }
+      ],
+      "foreign_keys": []
+    },
+    {
+      "name": "singer_in_concert",
+      "row_count": 10,
+      "columns": [
+        {
+          "name": "concert_ID",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": true,
+          "is_pk": true,
+          "is_nullable": true
+        },
+        {
+          "name": "Singer_ID",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": true,
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "4"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "ref_table": "singer",
+          "from_col": "Singer_ID",
+          "to_col": "Singer_ID"
+        },
+        {
+          "ref_table": "concert",
+          "from_col": "concert_ID",
+          "to_col": "concert_ID"
+        }
+      ]
+    },
+    {
+      "name": "stadium",
+      "row_count": 9,
+      "columns": [
+        {
+          "name": "Stadium_ID",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": true,
+          "is_pk": true,
+          "is_nullable": true
+        },
+        {
+          "name": "Location",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Raith Rovers",
+            "Ayr United",
+            "East Fife",
+            "Queen's Park",
+            "Stirling Albion",
+            "Arbroath",
+            "Alloa Athletic",
+            "Peterhead",
+            "Brechin City"
+          ]
+        },
+        {
+          "name": "Name",
+          "type": "TEXT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Stark's Park",
+            "Somerset Park",
+            "Bayview Stadium",
+            "Hampden Park",
+            "Forthbank Stadium",
+            "Gayfield Park",
+            "Recreation Park",
+            "Balmoor",
+            "Glebe Park"
+          ]
+        },
+        {
+          "name": "Capacity",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        },
+        {
+          "name": "Highest",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        },
+        {
+          "name": "Lowest",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        },
+        {
+          "name": "Average",
+          "type": "INT",
+          "notnull": false,
+          "dflt_value": null,
+          "pk": false,
+          "is_pk": false,
+          "is_nullable": true
+        }
+      ],
+      "foreign_keys": []
+    }
+  ],
+  "tables_count": 4,
+  "columns_count": 21,
+  "foreign_keys_count": 3
+}
+
+============ 3. Frontend graph elements ============
+{
+  "nodes_count": 25,
+  "edges_count": 27,
+  "nodes": [
+    {
+      "data": {
+        "id": "concert_singer.concert",
+        "label": "concert",
+        "type": "table"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.concert.concert_ID",
+        "label": "concert_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.concert.concert_Name",
+        "label": "concert_Name",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.concert.Theme",
+        "label": "Theme",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.concert.Stadium_ID",
+        "label": "Stadium_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.concert.Year",
+        "label": "Year",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer",
+        "label": "singer",
+        "type": "table"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Singer_ID",
+        "label": "Singer_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Name",
+        "label": "Name",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Country",
+        "label": "Country",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Song_Name",
+        "label": "Song_Name",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Song_release_year",
+        "label": "Song_release_year",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Age",
+        "label": "Age",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer.Is_male",
+        "label": "Is_male",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer_in_concert",
+        "label": "singer_in_concert",
+        "type": "table"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer_in_concert.concert_ID",
+        "label": "concert_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.singer_in_concert.Singer_ID",
+        "label": "Singer_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium",
+        "label": "stadium",
+        "type": "table"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Stadium_ID",
+        "label": "Stadium_ID",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Location",
+        "label": "Location",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Name",
+        "label": "Name",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Capacity",
+        "label": "Capacity",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Highest",
+        "label": "Highest",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Lowest",
+        "label": "Lowest",
+        "type": "column"
+      }
+    },
+    {
+      "data": {
+        "id": "concert_singer.stadium.Average",
+        "label": "Average",
+        "type": "column"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "data": {
+        "id": "has-column:concert_singer.concert.concert_ID",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.concert.concert_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.concert.concert_Name",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.concert.concert_Name",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.concert.Theme",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.concert.Theme",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.concert.Stadium_ID",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.concert.Stadium_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.concert.Year",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.concert.Year",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "foreign-key:concert_singer.concert.Stadium_ID:concert_singer.stadium.Stadium_ID",
+        "source": "concert_singer.concert.Stadium_ID",
+        "target": "concert_singer.stadium.Stadium_ID",
+        "label": "concert.Stadium_ID = stadium.Stadium_ID",
+        "type": "FOREIGN_KEY"
+      }
+    },
+    {
+      "data": {
+        "id": "references:concert_singer.concert:concert_singer.stadium",
+        "source": "concert_singer.concert",
+        "target": "concert_singer.stadium",
+        "label": "concert.Stadium_ID = stadium.Stadium_ID",
+        "type": "REFERENCES_TABLE"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Singer_ID",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Singer_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Name",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Name",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Country",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Country",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Song_Name",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Song_Name",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Song_release_year",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Song_release_year",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Age",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Age",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer.Is_male",
+        "source": "concert_singer.singer",
+        "target": "concert_singer.singer.Is_male",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer_in_concert.concert_ID",
+        "source": "concert_singer.singer_in_concert",
+        "target": "concert_singer.singer_in_concert.concert_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.singer_in_concert.Singer_ID",
+        "source": "concert_singer.singer_in_concert",
+        "target": "concert_singer.singer_in_concert.Singer_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "foreign-key:concert_singer.singer_in_concert.Singer_ID:concert_singer.singer.Singer_ID",
+        "source": "concert_singer.singer_in_concert.Singer_ID",
+        "target": "concert_singer.singer.Singer_ID",
+        "label": "singer_in_concert.Singer_ID = singer.Singer_ID",
+        "type": "FOREIGN_KEY"
+      }
+    },
+    {
+      "data": {
+        "id": "references:concert_singer.singer_in_concert:concert_singer.singer",
+        "source": "concert_singer.singer_in_concert",
+        "target": "concert_singer.singer",
+        "label": "singer_in_concert.Singer_ID = singer.Singer_ID",
+        "type": "REFERENCES_TABLE"
+      }
+    },
+    {
+      "data": {
+        "id": "foreign-key:concert_singer.singer_in_concert.concert_ID:concert_singer.concert.concert_ID",
+        "source": "concert_singer.singer_in_concert.concert_ID",
+        "target": "concert_singer.concert.concert_ID",
+        "label": "singer_in_concert.concert_ID = concert.concert_ID",
+        "type": "FOREIGN_KEY"
+      }
+    },
+    {
+      "data": {
+        "id": "references:concert_singer.singer_in_concert:concert_singer.concert",
+        "source": "concert_singer.singer_in_concert",
+        "target": "concert_singer.concert",
+        "label": "singer_in_concert.concert_ID = concert.concert_ID",
+        "type": "REFERENCES_TABLE"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Stadium_ID",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Stadium_ID",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Location",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Location",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Name",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Name",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Capacity",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Capacity",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Highest",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Highest",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Lowest",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Lowest",
+        "type": "HAS_COLUMN"
+      }
+    },
+    {
+      "data": {
+        "id": "has-column:concert_singer.stadium.Average",
+        "source": "concert_singer.stadium",
+        "target": "concert_singer.stadium.Average",
+        "type": "HAS_COLUMN"
+      }
+    }
+  ]
+}
+
+============ 4. Neo4j build summary ============
+{
+  "tables_count": 4,
+  "columns_count": 21,
+  "foreign_keys_count": 3,
+  "edges_count": 31
+}
+
+============ 5. Retrieved graph context ============
+{
+  "tables": [
+    {
+      "id": "concert_singer.concert",
+      "name": "concert",
+      "aliases": [
+        "concert"
+      ],
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "Stadium_ID",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "1",
+            "2",
+            "10",
+            "9",
+            "7"
+          ]
+        },
+        {
+          "name": "Theme",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Free choice",
+            "Free choice 2",
+            "Bleeding Love",
+            "Wide Awake",
+            "Happy Tonight",
+            "Party All Night"
+          ]
+        },
+        {
+          "name": "Year",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "2014",
+            "2015"
+          ]
+        },
+        {
+          "name": "concert_ID",
+          "type": "INT",
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "concert_Name",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Auditions",
+            "Super bootcamp",
+            "Home Visits",
+            "Week 1",
+            "Week 2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "concert_singer.singer",
+      "name": "singer",
+      "aliases": [
+        "singer"
+      ],
+      "row_count": 6,
+      "columns": [
+        {
+          "name": "Age",
+          "type": "INT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Country",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Netherlands",
+            "United States",
+            "France"
+          ]
+        },
+        {
+          "name": "Is_male",
+          "type": "bool",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Name",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Joe Sharp",
+            "Timbaland",
+            "Justin Brown",
+            "Rose White",
+            "John Nizinik",
+            "Tribal King"
+          ]
+        },
+        {
+          "name": "Singer_ID",
+          "type": "INT",
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Song_Name",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "You",
+            "Dangerous",
+            "Hey Oh",
+            "Sun",
+            "Gentleman",
+            "Love"
+          ]
+        },
+        {
+          "name": "Song_release_year",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "1992",
+            "2008",
+            "2013",
+            "2003",
+            "2014",
+            "2016"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "concert_singer.singer_in_concert",
+      "name": "singer_in_concert",
+      "aliases": [
+        "concert",
+        "in",
+        "singer",
+        "singer_in_concert"
+      ],
+      "row_count": 10,
+      "columns": [
+        {
+          "name": "Singer_ID",
+          "type": "TEXT",
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": [
+            "2",
+            "3",
+            "5",
+            "6",
+            "4"
+          ]
+        },
+        {
+          "name": "concert_ID",
+          "type": "INT",
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": []
+        }
+      ]
+    },
+    {
+      "id": "concert_singer.stadium",
+      "name": "stadium",
+      "aliases": [
+        "stadium"
+      ],
+      "row_count": 9,
+      "columns": [
+        {
+          "name": "Average",
+          "type": "INT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Capacity",
+          "type": "INT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Highest",
+          "type": "INT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Location",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Raith Rovers",
+            "Ayr United",
+            "East Fife",
+            "Queen's Park",
+            "Stirling Albion",
+            "Arbroath",
+            "Alloa Athletic",
+            "Peterhead",
+            "Brechin City"
+          ]
+        },
+        {
+          "name": "Lowest",
+          "type": "INT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": []
+        },
+        {
+          "name": "Name",
+          "type": "TEXT",
+          "is_pk": false,
+          "is_nullable": true,
+          "sample_values": [
+            "Stark's Park",
+            "Somerset Park",
+            "Bayview Stadium",
+            "Hampden Park",
+            "Forthbank Stadium",
+            "Gayfield Park",
+            "Recreation Park",
+            "Balmoor",
+            "Glebe Park"
+          ]
+        },
+        {
+          "name": "Stadium_ID",
+          "type": "INT",
+          "is_pk": true,
+          "is_nullable": true,
+          "sample_values": []
+        }
+      ]
+    }
+  ],
+  "join_paths": [
+    {
+      "from_table": "concert",
+      "to_table": "singer_in_concert",
+      "join_condition": "singer_in_concert.concert_ID = concert.concert_ID"
+    },
+    {
+      "from_table": "singer_in_concert",
+      "to_table": "singer",
+      "join_condition": "singer_in_concert.Singer_ID = singer.Singer_ID"
+    },
+    {
+      "from_table": "concert",
+      "to_table": "stadium",
+      "join_condition": "concert.Stadium_ID = stadium.Stadium_ID"
+    },
+    {
+      "from_table": "singer",
+      "to_table": "singer_in_concert",
+      "join_condition": "singer_in_concert.Singer_ID = singer.Singer_ID"
+    },
+    {
+      "from_table": "singer_in_concert",
+      "to_table": "concert",
+      "join_condition": "singer_in_concert.concert_ID = concert.concert_ID"
+    }
+  ],
+  "verified_queries": [],
+  "prompt_context_str": "Tables:\n- concert: Stadium_ID, Theme, Year, concert_ID, concert_Name\n- singer: Age, Country, Is_male, Name, Singer_ID, Song_Name, Song_release_year\n- singer_in_concert: Singer_ID, concert_ID\n- stadium: Average, Capacity, Highest, Location, Lowest, Name, Stadium_ID\nJoin paths:\n- singer_in_concert.concert_ID = concert.concert_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- concert.Stadium_ID = stadium.Stadium_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- singer_in_concert.concert_ID = concert.concert_ID"
+}
+
+============ 6. Gold SQL execution ============
+{
+  "sql": "SELECT count(*) FROM singer",
+  "row_count": 1,
+  "rows": [
+    {
+      "count(*)": 6
+    }
+  ]
+}
+
+============ 7. LLM answer synthesis ============
+{
+  "answer": "There are 6 singers."
+}
+
+Graph query test completed.

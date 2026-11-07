@@ -1,7 +1,7 @@
 # graph2sql-agent
 
 Graph-assisted natural-language querying and database editing with SQLite,
-Neo4j, Ollama, Flask, and a small PHP frontend.
+Neo4j, OpenAI-compatible LLMs, Flask, and a small PHP frontend.
 
 ## Quick Start
 
@@ -29,7 +29,7 @@ development stack:
 
 ```bash
 source .venv/bin/activate
-docker compose --profile ollama up #--build -d # to restart build
+docker compose up --build -d
 ```
 
 
@@ -37,14 +37,20 @@ For direct Flask testing, open `http://localhost:5000/` or check
 `http://localhost:5000/api/health`. The PHP frontend remains available at
 `http://localhost:8080`.
 
+Select a root `data/*.sqlite` source in the frontend and click **Build graph**.
+The request travels through PHP to `POST /api/setup`; Flask extracts SQLite
+metadata, builds Neo4j, and returns `nodes` and `edges` for force-graph.
+Generated edit copies are stored under `data/working/` and are not listed as
+source databases.
+
 ## Components
 
 - **Neo4j:** Stores the schema knowledge graph.
-- **Ollama:** Runs the local LLM and stores models in the `ollama_data` volume.
-- **Ollama profile:** Starts Ollama and downloads `LLM_MODEL`; omit the profile when using a cloud provider.
+- **OpenAI-compatible LLM:** Uses `OPENAI_API_KEY`, `OPENAI_BASE_URL`, and `LLM_MODEL` from `.env` for SQL generation and answer synthesis.
 - **Flask agent:** Extracts database metadata, retrieves graph context, calls the LLM, and executes SQL.
 - **PHP frontend:** Provides the browser UI and proxies requests to Flask.
-- **`data/`:** Contains the downloaded Spider release plus selected runtime SQLite databases.
+- **`data/`:** Contains the downloaded Spider release and selected source SQLite databases; generated working copies live in `data/working/`.
+- **Graph canvas:** `frontend/graph.js` renders the nodes and edges returned by the Flask setup endpoint with force-graph.
 - **`scripts/`:** Contains setup, database selection, download, and benchmark commands.
 
 ## Useful Commands
