@@ -7,11 +7,11 @@ This document is the authoritative engineering guide for AI coding agents and de
 This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
 
 - `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, aliases, and memory persistence are implemented; live Neo4j integration coverage remains to be expanded.
-- `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
-- `app.py`: database listing, health, graph setup responses, and working-graph file reuse are implemented; QA and Edit endpoints are not implemented.
-- `frontend/`: PHP setup, force-graph inspection, and source-database selection are implemented; QA, Edit Mode, SQL results, and telemetry views are incomplete.
+- `services/agent_service.py`: LLM provider calls, QA flow, and answer synteehsis are implemented. Edit flow, retries, telemetry, and graph synchronization are stubs.
+- `app.py`: database listing, health, graph setup responses, working-graph file reuse, and QA are implemented; Edit endpoints are not implemented.
+- `frontend/`: PHP setup, graph interaction, database selection, SQL results, and QA chat are implemented. Edit Mode view is implemented but does not work. telemetry views are incomplete.
 - `scripts/run_benchmarks.py`: benchmark modes and evaluation metrics are not implemented.
-- `tests/`: current tests are import smoke tests and do not verify the required behavior.
+- `scripts/tests/`: current tests only verifies graph QA flow.
 
 ---
 
@@ -94,7 +94,7 @@ Maintain this flat, modular project structure:
 ├── frontend/
 │   ├── api.php                # Calls agent server
 │   ├── index.php              # Runs frontend
-│   ├── graph.js               # force-graph rendering
+│   ├── utils.js               # frontend behavior and force-graph rendering
 │   ├── style.css              # style for frontend
 │   └── Dockerfile             # exposes frontend port
 ├── services/
@@ -129,7 +129,7 @@ Maintain this flat, modular project structure:
 - **Verify Neo4j HTTP Endpoint:** `curl -I http://localhost:7474`
 - **Install Python Dependencies:** `pip install -r requirements.txt`
 - **Run Flask Server:** `python app.py` (listens on `http://localhost:5000`)
-- **Run Unit Tests:** `pytest tests/`
+- **Run Unit Tests:** `pytest scripts/tests/`
 - **Run Benchmarks (A/B/C):** `python scripts/run_benchmarks.py --db concert_singer --limit 50`
 
 ---
@@ -214,7 +214,7 @@ Maintain this flat, modular project structure:
    - **Final Answer Construction:** Pass the user prompt + returned SQL rows (truncated to 50 rows max for prompt safety) to the LLM to synthesize a concise natural language answer; do not pass the SQL or graph context.
 4. **Flow 3: Edit Mode (`POST /api/agent/edit`):**
    - `prompt` $\rightarrow$ `subgraph = graph_query.get_subgraph(db_name, prompt, k=5)` $\rightarrow$ LLM determines whether the user wants:
-     - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, `ALTER TABLE`, or `CREATE TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER`, `CREATE`, or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
+     - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, and `ALTER TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER` or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
      - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_query.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
    - Return a structured change report (`sql_executed`, `rows_affected`, `graph_updated`, `summary`).
 ---
@@ -223,7 +223,7 @@ Maintain this flat, modular project structure:
 **Implementation status: PARTIAL.** The PHP/Apache shell and proxy exist, but the complete workbench workflow is not implemented.
 
 1. **Stack:** Use PHP served by Apache with HTML, CSS, and browser JavaScript. Do not introduce React, TypeScript, Node.js services, or a frontend build pipeline.
-2. **Files:** Keep the browser UI in `frontend/index.php`, graph rendering in `frontend/graph.js`, and styles in `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
+2. **Files:** Keep the browser UI in `frontend/index.php`, browser behavior and graph rendering in `frontend/utils.js`, and styles in `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
 3. **Service boundary:** The browser calls `api.php`; `api.php` forwards approved requests to the Flask `agent` service using the Compose-injected `AGENT_URL`. Do not expose internal service hostnames or credentials to browser JavaScript.
 4. **API proxy:** Keep the proxy limited to the documented Flask routes, preserve upstream status codes, return JSON errors for unavailable services, and avoid hard-coding environment-specific host ports.
 5. **Container:** Build the frontend with `frontend/Dockerfile` from `php:8.3-apache`. The host-facing port is configured by `FRONTEND_PORT` in `.env`; Apache continues to use port `80` inside the container.
@@ -252,8 +252,7 @@ Keep all endpoints returning consistent JSON payloads with proper HTTP status co
 Returns available `.sqlite` files in `/data`.
 ```json
 {
-  "databases": ["concert_singer", "chinook", "college_2"],
-  "active_db": "concert_singer"
+  "databases": ["concert_singer", "chinook", "college_2"]
 }
 ```
 

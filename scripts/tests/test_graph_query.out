@@ -1079,8 +1079,13 @@
       "join_condition": "singer_in_concert.concert_ID = concert.concert_ID"
     }
   ],
-  "verified_queries": [],
-  "prompt_context_str": "Tables:\n- concert: Stadium_ID, Theme, Year, concert_ID, concert_Name\n- singer: Age, Country, Is_male, Name, Singer_ID, Song_Name, Song_release_year\n- singer_in_concert: Singer_ID, concert_ID\n- stadium: Average, Capacity, Highest, Location, Lowest, Name, Stadium_ID\nJoin paths:\n- singer_in_concert.concert_ID = concert.concert_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- concert.Stadium_ID = stadium.Stadium_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- singer_in_concert.concert_ID = concert.concert_ID"
+  "verified_queries": [
+    {
+      "prompt": "How many singers do we have?",
+      "sql": "SELECT COUNT(*) FROM singer;"
+    }
+  ],
+  "prompt_context_str": "Tables:\n- concert: Stadium_ID, Theme, Year, concert_ID, concert_Name\n- singer: Age, Country, Is_male, Name, Singer_ID, Song_Name, Song_release_year\n- singer_in_concert: Singer_ID, concert_ID\n- stadium: Average, Capacity, Highest, Location, Lowest, Name, Stadium_ID\nJoin paths:\n- singer_in_concert.concert_ID = concert.concert_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- concert.Stadium_ID = stadium.Stadium_ID\n- singer_in_concert.Singer_ID = singer.Singer_ID\n- singer_in_concert.concert_ID = concert.concert_ID\nVerified queries:\n- How many singers do we have?: SELECT COUNT(*) FROM singer;"
 }
 
 ============ 6. Gold SQL execution ============
@@ -1096,7 +1101,7 @@
 
 ============ 7. LLM answer synthesis ============
 {
-  "answer": "There are 6 singers."
+  "answer": "We have 6 singers."
 }
 
 Graph query test completed.

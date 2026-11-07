@@ -50,7 +50,7 @@ source databases.
 - **Flask agent:** Extracts database metadata, retrieves graph context, calls the LLM, and executes SQL.
 - **PHP frontend:** Provides the browser UI and proxies requests to Flask.
 - **`data/`:** Contains the downloaded Spider release and selected source SQLite databases; generated working copies live in `data/working/`.
-- **Graph canvas:** `frontend/graph.js` renders the nodes and edges returned by the Flask setup endpoint with force-graph.
+- **Graph canvas:** `frontend/utils.js` renders the nodes and edges returned by the Flask setup endpoint with force-graph and handles browser API calls.
 - **`scripts/`:** Contains setup, database selection, download, and benchmark commands.
 
 ## Useful Commands

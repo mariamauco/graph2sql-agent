@@ -21,9 +21,10 @@ def _join_paths(table_ids):
 		"MATCH (a:Table {id: from_id}), (b:Table {id: to_id}) "
 		"MATCH p = allShortestPaths((a)-[:REFERENCES_TABLE|SEMANTIC_JOIN*..3]-(b)) "
 		"UNWIND range(0, size(nodes(p)) - 2) AS i "
-		"WITH relationships(p)[i] AS r, nodes(p)[i] AS from, nodes(p)[i + 1] AS to "
+		"WITH p, relationships(p)[i] AS r, nodes(p)[i] AS from, nodes(p)[i + 1] AS to "
 		"WHERE r.join_condition IS NOT NULL "
-		"RETURN DISTINCT from.name AS from_table, to.name AS to_table, r.join_condition AS join_condition",
+		"RETURN DISTINCT [table IN nodes(p) | table.id] AS path_table_ids, "
+		"from.name AS from_table, to.name AS to_table, r.join_condition AS join_condition",
 		{"table_ids": table_ids},
 	)
 
@@ -82,8 +83,19 @@ def get_subgraph(db_name, prompt, k=5):
 		)
 		table_ids = [row["id"] for row in hits] or [row["id"] for row in all_tables]
 
+	paths = _join_paths(table_ids)
+	table_ids = list(dict.fromkeys(
+		table_ids + [
+			table_id
+			for path in paths
+			for table_id in path.get("path_table_ids", [])
+		]
+	))
 	tables = _table_context(table_ids)
-	joins = _join_paths(table_ids)
+	joins = [
+		{key: value for key, value in path.items() if key != "path_table_ids"}
+		for path in paths
+	]
 	verified = run_cypher_http(
 		"MATCH (q:VerifiedQuery)-[:TOUCHES]->(t:Table) WHERE t.id IN $table_ids "
 		"WITH q, max(q.created_at) AS created_at ORDER BY created_at DESC "

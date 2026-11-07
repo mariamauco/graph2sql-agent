@@ -23,7 +23,7 @@ def create_app() -> Flask:
     @app.get("/api/databases")
     def databases():
         names = sorted(path.stem for path in settings.data_dir.glob("*.sqlite"))
-        return jsonify({"databases": names, "active_db": None})
+        return jsonify({"databases": names})
 
     @app.get("/api/health")
     def health():

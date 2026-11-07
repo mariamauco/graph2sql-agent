@@ -27,6 +27,11 @@ h2 { margin: 0; font-size: 1.6rem; }
 label { display: block; margin-bottom: 0.4rem; color: var(--muted); font: 700 0.75rem Arial, sans-serif; text-transform: uppercase; }
 select, button { width: 100%; min-height: 2.8rem; border: 1px solid var(--line); padding: 0.65rem 0.8rem; font: inherit; }
 button { width: auto; min-width: 9rem; color: #fff; background: var(--accent); border-color: var(--accent); cursor: pointer; }
+.tab { display: flex; gap: 0.5rem; margin-top: 2rem; border-bottom: 1px solid var(--line); }
+.tablinks { min-width: 6rem; color: var(--muted); background: transparent; border: 0; border-bottom: 3px solid transparent; }
+.tab button { margin: 0; }
+.tablinks.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tabcontent[hidden] { display: none; }
 .status-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; width: 100%; }
 .status { flex: 1; margin: 0; color: var(--muted); font-size: 0.9rem; }
 .legend { display: flex; flex-wrap: wrap; gap: 0.75rem; color: var(--muted); font: 0.75rem Arial, sans-serif; }
@@ -45,11 +50,12 @@ button { width: auto; min-width: 9rem; color: #fff; background: var(--accent); b
   margin-top: 0.5rem;
 }
 #graph canvas { display: block; max-width: 100%; }
-.agent-panel { margin-top: 2rem; }
+.agent-panel { margin-top: 0; }
 .agent-form { display: flex; flex-direction: column; gap: 0.4rem; }
 .agent-input { display: flex; gap: 0.75rem; }
 .agent-input input { flex: 1; min-width: 0; border: 1px solid var(--line); padding: 0.65rem 0.8rem; font: inherit; }
-.chat-log { display: flex; flex-direction: column; gap: 0.75rem; min-height: 4rem; }
+.chat-log { display: flex; flex-direction: column; gap: 1rem; min-height: 4rem; max-height: 24rem; overflow-y: auto; overscroll-behavior: contain; padding: 0.25rem; }
+.chat-entry { display: flex; flex: 0 0 auto; flex-direction: column; gap: 0.65rem; }
 .chat-log p { margin: 0; }
 .chat-empty, .chat-pending { color: var(--muted); }
 .chat-question { align-self: flex-end; max-width: 85%; padding: 0.65rem 0.8rem; color: #fff; background: var(--accent); }
