@@ -8,9 +8,9 @@ python3 -c 'from services.db_service import extract_schema; m=extract_schema("da
 python3 -c 'from services.db_service import execute_read_sql; print(execute_read_sql("data/college_1.sqlite", "SELECT STU_NUM, STU_LNAME, STU_FNAME, STU_GPA FROM STUDENT LIMIT 3"))'
 
 # Execute a harmless write that affects no rows and verify the working copy exists.
-python3 -c 'from pathlib import Path; from services.db_service import execute_write_sql; print(execute_write_sql("data/college_1.sqlite", "UPDATE STUDENT SET STU_HRS = STU_HRS WHERE 1 = 0")); print(Path("data/college_1_working.sqlite").exists())'
+python3 -c 'from pathlib import Path; from services.db_service import execute_write_sql; print(execute_write_sql("data/college_1.sqlite", "UPDATE STUDENT SET STU_HRS = STU_HRS WHERE 1 = 0")); print(Path("data/working/college_1_working.sqlite").exists())'
 
-# Reset the working copy from the original benchmark database.
-python3 -c 'from services.db_service import reset_sandbox; print(reset_sandbox("college_1", "data"))'
+# Reset the working copy through the shared helper.
+python3 -c 'from services.db_service import provide_working; print(provide_working("data/college_1.sqlite", reset=True))'
 
 deactivate

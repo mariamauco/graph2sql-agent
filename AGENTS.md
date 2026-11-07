@@ -6,12 +6,12 @@ This document is the authoritative engineering guide for AI coding agents and de
 
 This repository is currently a scaffold. The following features are **incomplete** and must not be treated as implemented:
 
-- `services/graph_service.py`: Neo4j HTTP access, graph construction, subgraph retrieval, and memory persistence are stubs.
-- `services/agent_service.py`: LLM provider calls, QA flow, Edit flow, retries, telemetry, and graph synchronization are stubs.
-- `app.py`: only scaffold database, health, and setup responses exist; QA and Edit endpoints are not implemented.
-- `frontend/`: the PHP UI currently supports only the initial database/setup shell; QA, Edit Mode, graph inspection, SQL results, and telemetry views are incomplete.
+- `services/graph/`: Neo4j HTTP access, graph construction, subgraph retrieval, aliases, and memory persistence are implemented; live Neo4j integration coverage remains to be expanded.
+- `services/agent_service.py`: LLM provider calls, QA flow, and answer synteehsis are implemented. Edit flow, retries, telemetry, and graph synchronization are stubs.
+- `app.py`: database listing, health, graph setup responses, working-graph file reuse, and QA are implemented; Edit endpoints are not implemented.
+- `frontend/`: PHP setup, graph interaction, database selection, SQL results, and QA chat are implemented. Edit Mode view is implemented but does not work. telemetry views are incomplete.
 - `scripts/run_benchmarks.py`: benchmark modes and evaluation metrics are not implemented.
-- `tests/`: current tests are import smoke tests and do not verify the required behavior.
+- `scripts/tests/`: current tests only verifies graph QA flow.
 
 ---
 
@@ -20,10 +20,10 @@ This repository is currently a scaffold. The following features are **incomplete
 We are building an AI agent that performs natural language querying (**QA Mode**) and database/schema mutations (**Edit Mode**) over relational databases using a **Neo4j Knowledge Graph** accessed via HTTP.
 
 ### Why This Beats Raw Schema Prompting (The 5 Core Pillars)
-Whenever you implement or modify `db_service.py`, `graph_service.py`, or `agent_service.py`, you must preserve and reinforce these five mechanisms:
+Whenever you implement or modify `db_service.py`, `graph_build.py`, `graph_query.py`, or `agent_service.py`, you must preserve and reinforce these five mechanisms:
 
 1. **Pre-Computed Shortest-Path `JOIN` Chains (`allShortestPaths`):**
-   - Once anchor `:Table` nodes are matched from a user prompt, Neo4j runs Cypher `allShortestPaths` between those anchor tables (up to $k=3$ hops) to automatically discover intermediate junction tables and outputs an **explicit, pre-verified `JOIN` path string** (e.g., `artists.id = albums.artist_id -> albums.id = tracks.album_id`).
+   - Once anchor `:Table` nodes are matched from a user prompt, Neo4j runs Cypher `allShortestPaths` between those anchor tables (up to `k=5` matched tables) to automatically discover intermediate junction tables and outputs an **explicit, pre-verified `JOIN` path string** (e.g., `artists.id = albums.artist_id -> albums.id = tracks.album_id`).
 2. **Safe Metadata & Distinct Value Profiling on `:Column` Nodes:**
    - During graph setup, the schema extractor inspects low-cardinality text/categorical columns ($\text{COUNT(DISTINCT col)} \le 10$) that do not match sensitive column names (e.g., `password`, `ssn`, `email`, `phone`, `secret`) and stores `distinct_values: ["COMP", "PEND", "CANC"]` directly on the `:Column` node in Neo4j.
 3. **Full-Text Indexing + Semantic Aliasing:**
@@ -56,7 +56,7 @@ All backend logic runs in a **single Python Flask server (`app.py`)** that commu
 |     - Reads `/data/*.sqlite` via `PRAGMA table_info` & `foreign_key_list`|
 |     - Executes Read SQL (QA Mode) & Write SQL on sandbox copy (Edit)    |
 |                                                                         |
-|  2. `graph_service.py` (Neo4j HTTP Client)                              |
+|  2. `services/graph/` (Neo4j HTTP Client and Graph Pipeline)             |
 |     - Builds `:Database`, `:Table`, `:Column`, & `:FOREIGN_KEY` graph   |
 |     - Runs Full-Text Search + `allShortestPaths` to extract subgraph    |
 |     - Persists `:VerifiedQuery` & `:SEMANTIC_JOIN` edges                |
@@ -70,8 +70,8 @@ All backend logic runs in a **single Python Flask server (`app.py`)** that commu
                    v                                   v
 +------------------------------------+   +--------------------------------+
 |   Neo4j 5.x (Docker or AuraDB)     |   |   LLM Engine (Configurable)    |
-|   - Port 7474 (HTTP Query API v2)  |   |   - Local: Ollama (Qwen2.5-7B) |
-|   - Persistent Graph & Query Cache |   |   - Cloud: GPT-4o / Claude 3.5 |
+|   - Port 7474 (HTTP Query API v2)  |   |   - Default: OpenAI-compatible |
+|   - Persistent Graph & Query Cache |   |     Luna (`gpt-6-luna`)            |
 +------------------------------------+   +--------------------------------+
 ```
 
@@ -94,15 +94,20 @@ Maintain this flat, modular project structure:
 ├── frontend/
 │   ├── api.php                # Calls agent server
 │   ├── index.php              # Runs frontend
+│   ├── utils.js               # frontend behavior and force-graph rendering
 │   ├── style.css              # style for frontend
 │   └── Dockerfile             # exposes frontend port
 ├── services/
 │   ├── __init__.py
 │   ├── db_service.py          # SQLite PRAGMA extractor, sandbox manager, SQL executor
-│   ├── graph_service.py       # Neo4j HTTP Query API v2 client & Cypher builders
+│   ├── graph/
+│   │   ├── graph_client.py    # Neo4j HTTP Query API v2 client
+│   │   ├── graph_build.py     # Graph nodes, relationships, and indexes
+│   │   ├── graph_query.py     # Subgraph retrieval and query memory
 │   └── agent_service.py       # LLM wrapper, QA pipeline, Edit pipeline
-├── data/                      # Spider release, selected source DBs, and working sandboxes
+├── data/                      # Spider release and selected source DBs
 │   └── spider_databases/      # Downloaded Spider dataset; keep runtime DBs at data/ root
+│   └── working/                # Generated working database copies
 └── scripts/
   ├── download_spider_data.sh # Downloads Spider dataset and databases
   ├── select_spider_db.sh
@@ -120,11 +125,11 @@ Maintain this flat, modular project structure:
 ### Common Commands
 - Startup services: `docker compose up --build`
 - **Run services with  Container:** `docker compose up -d` 
-- for using ollama, add `--profile ollama`
+- for using the configured cloud LLM, run `docker compose up -d`
 - **Verify Neo4j HTTP Endpoint:** `curl -I http://localhost:7474`
 - **Install Python Dependencies:** `pip install -r requirements.txt`
 - **Run Flask Server:** `python app.py` (listens on `http://localhost:5000`)
-- **Run Unit Tests:** `pytest tests/`
+- **Run Unit Tests:** `pytest scripts/tests/`
 - **Run Benchmarks (A/B/C):** `python scripts/run_benchmarks.py --db concert_singer --limit 50`
 
 ---
@@ -136,8 +141,8 @@ Maintain this flat, modular project structure:
 
 1. **Never Corrupt Source `.sqlite` Files:**
   - Store the downloaded Spider release under `data/spider_databases/`, but copy selected original SQLite files to `data/{db_name}.sqlite` for runtime use.
-   - On setup or before any Edit Mode operation, copy `data/{db_name}.sqlite` to `data/{db_name}_working.sqlite` if it does not already exist (and provide a `reset_sandbox(db_name)` helper).
-   - Execute both QA and Edit queries against `data/{db_name}_working.sqlite` so newly inserted rows or altered columns in Edit Mode are immediately visible to follow-up QA Mode queries.
+  - On setup or before any Edit Mode operation, use `provide_working(db_path)` to create or return `data/working/{db_name}_working.sqlite`; pass `reset=True` when the working copy must be restored from the source.
+  - Execute both QA and Edit queries against `data/working/{db_name}_working.sqlite` so newly inserted rows or altered columns in Edit Mode are immediately visible to follow-up QA Mode queries.
 2. **Metadata Extraction (`extract_schema_metadata(db_name_or_uri)`):**
    - Query `sqlite_master` for all user tables (`type='table' AND name NOT LIKE 'sqlite_%'`).
    - Run `PRAGMA table_info('{table}')` to extract column `name`, `type`, `notnull`, `dflt_value`, and `pk`.
@@ -152,8 +157,8 @@ Maintain this flat, modular project structure:
 
 ---
 
-### 5.2 `services/graph_service.py` (Neo4j HTTP Query API v2 Client)
-**Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
+### 5.2 `services/graph/` (Neo4j HTTP Query API v2 and Graph Pipeline)
+**Implementation status: PARTIAL.** HTTP, graph setup, subgraph retrieval, and memory helpers are implemented; live Neo4j integration coverage and end-to-end agent use remain.
 
 1. **Strict HTTP Requirement:**
    - Communicate with Neo4j **exclusively via HTTP POST** to `NEO4J_HTTP_URL` (`http://localhost:7474/db/neo4j/query/v2`) using `requests.post`. Do **not** require the `neo4j` binary Bolt Python driver.
@@ -198,19 +203,19 @@ Maintain this flat, modular project structure:
 **Implementation status: INCOMPLETE.** The rules below define the required behavior; the current module contains placeholders.
 
 1. **Unified LLM Client:**
-   - Use the `openai` Python SDK (or LangChain's `ChatOpenAI` / `ChatAnthropic`) configured via `config.py`. Note that Ollama supports the OpenAI SDK natively when `base_url="http://localhost:11434/v1"` and `api_key="ollama"`.
+   - Use the `openai` Python SDK configured via `config.py`. The default provider is OpenAI-compatible Luna (`LLM_MODEL=gpt-6-luna`); omit `temperature` because Luna only supports its default value.
    - Record prompt tokens, completion tokens, and total latency (`time.perf_counter()`) on every request so the UI and benchmark runner always receive telemetry even if LangSmith is offline.
 2. **Flow 1: Setup (`POST /api/setup`):**
-   - `db_service.extract_schema_metadata(db_name)` $\rightarrow$ `graph_service.build_graph(db_name, metadata)` $\rightarrow$ return graph summary (`tables_count`, `columns_count`, `edges_count`, `status: "ready"`).
+   - `db_service.extract_schema_metadata(db_name)` $\rightarrow$ `graph_build.build_graph(db_name, metadata)` $\rightarrow$ return graph summary (`tables_count`, `columns_count`, `edges_count`, `status: "ready"`).
 3. **Flow 2: QA Mode (`POST /api/agent/qa`):**
-   - `prompt` $\rightarrow$ `subgraph = graph_service.get_subgraph(db_name, prompt)` $\rightarrow$ LLM generates a single SQLite `SELECT` query using `subgraph.prompt_context_str` $\rightarrow$ `db_service.execute_read_sql(db_name, sql)`.
+   - `prompt` $\rightarrow$ `subgraph = graph_query.get_subgraph(db_name, prompt, k=5)` $\rightarrow$ LLM generates a single SQLite `SELECT` query using `subgraph.prompt_context_str` $\rightarrow$ `db_service.execute_read_sql(db_name, sql)`.
    - **Self-Correction Retry:** If SQLite raises an `OperationalError` (e.g., `no such column` or syntax error), feed the failed SQL + SQLite error message + `subgraph.prompt_context_str` back to the LLM once to repair the query.
-   - **Memory Persistence:** If execution succeeds, call `graph_service.save_verified_query(db_name, prompt, sql, touched_tables)`.
-   - **Final Answer Construction:** Pass the user prompt + `subgraph.prompt_context_str` + returned SQL rows (truncated to 50 rows max for prompt safety) to the LLM to synthesize a concise natural language answer.
+   - **Memory Persistence:** If execution succeeds, call `graph_query.save_verified_query(db_name, prompt, sql, touched_tables)`.
+   - **Final Answer Construction:** Pass the user prompt + returned SQL rows (truncated to 50 rows max for prompt safety) to the LLM to synthesize a concise natural language answer; do not pass the SQL or graph context.
 4. **Flow 3: Edit Mode (`POST /api/agent/edit`):**
-   - `prompt` $\rightarrow$ `subgraph = graph_service.get_subgraph(db_name, prompt)` $\rightarrow$ LLM determines whether the user wants:
-     - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, `ALTER TABLE`, or `CREATE TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER`, `CREATE`, or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
-     - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_service.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
+   - `prompt` $\rightarrow$ `subgraph = graph_query.get_subgraph(db_name, prompt, k=5)` $\rightarrow$ LLM determines whether the user wants:
+     - **Case A (Database DML/DDL Mutation):** Generates `INSERT`, `UPDATE`, `DELETE`, and `ALTER TABLE` SQL $\rightarrow$ executes via `db_service.execute_write_sql(db_name, sql)`. If the SQL contains `ALTER` or `DROP`, immediately re-run `extract_schema_metadata` and `build_graph` so Neo4j stays in sync.
+     - **Case B (Semantic Graph Relationship Edit):** If the user states a domain relationship (e.g., *"Connect table X's `code` column to table Y's `ref_code` column"*), validate that both tables/columns exist and call `graph_query.add_semantic_join(db_name, from_table, to_table, join_condition, description)`.
    - Return a structured change report (`sql_executed`, `rows_affected`, `graph_updated`, `summary`).
 ---
 
@@ -218,22 +223,24 @@ Maintain this flat, modular project structure:
 **Implementation status: PARTIAL.** The PHP/Apache shell and proxy exist, but the complete workbench workflow is not implemented.
 
 1. **Stack:** Use PHP served by Apache with HTML, CSS, and browser JavaScript. Do not introduce React, TypeScript, Node.js services, or a frontend build pipeline.
-2. **Files:** Keep the browser UI in `frontend/index.php` and `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
+2. **Files:** Keep the browser UI in `frontend/index.php`, browser behavior and graph rendering in `frontend/utils.js`, and styles in `frontend/style.css`. Keep backend proxying in `frontend/api.php`.
 3. **Service boundary:** The browser calls `api.php`; `api.php` forwards approved requests to the Flask `agent` service using the Compose-injected `AGENT_URL`. Do not expose internal service hostnames or credentials to browser JavaScript.
 4. **API proxy:** Keep the proxy limited to the documented Flask routes, preserve upstream status codes, return JSON errors for unavailable services, and avoid hard-coding environment-specific host ports.
 5. **Container:** Build the frontend with `frontend/Dockerfile` from `php:8.3-apache`. The host-facing port is configured by `FRONTEND_PORT` in `.env`; Apache continues to use port `80` inside the container.
+6. **Graph caching:** Store the selected graph response in browser `localStorage` for immediate repeat renders. Do not add a server-memory graph cache. The browser may receive the graph from the Flask setup response, which is backed by `data/working/{db_name}_graph.json` when that artifact already exists.
 
 ### 5.5 Docker Setup
 **Implementation status: PARTIAL.** The Compose services, profiles, volumes, and development scripts exist, but successful container startup does not mean the agent behavior is complete.
 
-1. **Compose services:** `docker-compose.yml` must manage `neo4j`, `ollama`, `ollama-init`, `agent` (Flask), and `frontend` (PHP/Apache).
+1. **Compose services:** `docker-compose.yml` must manage `neo4j`, the optional Ollama compatibility profile, `agent` (Flask), and `frontend` (PHP/Apache).
 2. **Build boundaries:** `Dockerfile.agent` installs Python dependencies from `requirements.txt` and runs Flask on internal port `5000`. The frontend image installs PHP/Apache. Do not require host Python, PHP, Neo4j, or Ollama installations for the Compose workflow.
 3. **Environment:** Read credentials, provider selection, model name, host-facing ports, and telemetry settings from `.env`. Keep `.env` untracked and keep only safe placeholders in `.env.example`. Internal Compose ports and service URLs belong in Compose service configuration, not duplicated as environment variables.
-4. **Dependencies:** Neo4j must be healthy before the agent starts. When the `ollama` profile is enabled, `ollama-init` waits for Ollama health before pulling `LLM_MODEL`. The agent must work with either the local Ollama profile or a cloud provider without requiring the other.
-5. **Persistent storage:** Preserve the named `neo4j_data`, `neo4j_logs`, and `ollama_data` volumes. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
-6. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep edit-mode working copies separate from source databases.
-7. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
-8. **Provider switching:** Keep the LLM client behind the existing agent abstraction. `LLM_PROVIDER=ollama` uses the Compose `ollama` service and requires `docker compose --profile ollama up -d`; `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. Switching providers must not require changing Dockerfiles or frontend code.
+4. **Dependencies:** Neo4j must be healthy before the agent starts. The default cloud provider uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL`; the optional `ollama` profile remains available for compatibility without being required.
+5. **Persistent storage:** Preserve the named `neo4j_data` and `neo4j_logs` volumes; `ollama_data` is only used by the optional compatibility profile. Mount the repository `./data` directory directly at `/app/data` so selected SQLite files are immediately available to the agent. The host-facing Flask port is configured by `AGENT_PORT` and maps to the container's port `5000` for direct testing.
+7. **Database data:** Source Spider `.sqlite` files must not be committed. Keep the downloaded release under `data/spider_databases/`, copy selected databases to `data/` root with `scripts/select_spider_db.sh`, and keep generated edit-mode working copies and graph artifacts under `data/working/`.
+8. **Cache invalidation:** Any agent edit or schema rebuild must call `build_graph()`, which removes the matching `data/working/{db_name}_graph.json` before recomputing it. The frontend edit flow must also remove that database's `localStorage` graph entry.
+9. **Required commands:** Validate with `docker compose config`, build with `docker compose build agent frontend`, start with `docker compose up -d`, inspect with `docker compose ps` and `docker compose logs`, and stop with `docker compose down`. Use `docker compose down -v` only when intentionally resetting persistent state.
+10. **Provider switching:** Keep the LLM client behind the existing agent abstraction. The default `LLM_PROVIDER=openai` uses `OPENAI_BASE_URL`, `OPENAI_API_KEY`, and `LLM_MODEL` without the Ollama profile. `LLM_PROVIDER=ollama` remains supported through `docker compose --profile ollama up -d`; switching providers must not require changing Dockerfiles or frontend code.
 
 ---
 
@@ -245,8 +252,7 @@ Keep all endpoints returning consistent JSON payloads with proper HTTP status co
 Returns available `.sqlite` files in `/data`.
 ```json
 {
-  "databases": ["concert_singer", "chinook", "college_2"],
-  "active_db": "concert_singer"
+  "databases": ["concert_singer", "chinook", "college_2"]
 }
 ```
 
@@ -267,6 +273,9 @@ Response:
   "tables_count": 4,
   "columns_count": 21,
   "foreign_keys_count": 2,
+  "nodes": [],
+  "edges": [],
+  "cached": false,
   "latency_ms": 142.5
 }
 ```
@@ -341,7 +350,7 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 
 - **`test_a` (Baseline Raw Schema):** No Neo4j calls. Dumps the entire database DDL (`CREATE TABLE ...` for every table in the database) directly into the LLM prompt.
 - **`test_b` (DB-Only Agent):** No Neo4j graph. The agent first calls a `list_tables` / `describe_tables` inspection step against SQLite before generating SQL.
-- **`test_c` (Neo4j Graph-Assisted Agent):** Full pipeline using `graph_service.get_subgraph()` with Full-Text search, `allShortestPaths` join chains, column distinct value samples, and `:VerifiedQuery` few-shot memory.
+- **`test_c` (Neo4j Graph-Assisted Agent):** Full pipeline using `graph_query.get_subgraph()` with Full-Text search, `allShortestPaths` join chains, column distinct value samples, and `:VerifiedQuery` few-shot memory.
 
 **Execution Accuracy (EX) Rule:** Compare the result set of the generated SQL (`set(tuple(row) for row in pred_rows)`) against the ground-truth Spider SQL result set on the same `.sqlite` database.
 
@@ -351,6 +360,6 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 
 1. **No Node.js Services:** Keep the backend 100% in Python (`Flask`). Do not scaffold Express/Node servers.
 2. **No PostgreSQL Dependency Required for Local Dev:** Default to SQLite `.sqlite` files in `./data`. Only use SQLAlchemy for optional remote URIs.
-3. **Always Use Neo4j HTTP Query API v2:** All Neo4j communication in `graph_service.py` must go through HTTP `POST` to `/db/neo4j/query/v2` on port `7474`.
+3. **Always Use Neo4j HTTP Query API v2:** All Neo4j communication in `services/graph/graph_client.py` must go through HTTP `POST` to `/db/neo4j/query/v2` on port `7474`.
 4. **Extract SQL Cleanly from LLM Responses:** Local models (`qwen2.5-coder:7b`) often wrap SQL in ` ```sql ... ``` ` markdown fences. Always strip markdown code fences before passing SQL to `sqlite3`.
-5. **Graceful Degradation:** If Neo4j or Ollama is unreachable, return a clear JSON error message (`{"error": "...", "hint": "Run docker compose up -d"}`) with HTTP 503 rather than an unhandled stack trace.
+5. **Graceful Degradation:** If Neo4j or the configured LLM is unreachable, return a clear JSON error message (`{"error": "...", "hint": "Run docker compose up -d"}`) with HTTP 503 rather than an unhandled stack trace.

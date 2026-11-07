@@ -10,6 +10,8 @@ $routes = [
     'databases' => ['GET', '/api/databases'],
     'health' => ['GET', '/api/health'],
     'setup' => ['POST', '/api/setup'],
+    'qa' => ['POST', '/api/agent/qa'],
+    'edit' => ['POST', '/api/agent/edit'],
 ];
 
 if (!isset($routes[$action])) {
@@ -27,8 +29,7 @@ $options = [
     'http' => [
         'method' => $method,
         'header' => implode("\r\n", $headers),
-        'ignore_errors' => true,
-        'timeout' => 10,
+        'ignore_errors' => true
     ],
 ];
 

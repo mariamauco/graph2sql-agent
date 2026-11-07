@@ -41,7 +41,7 @@ def extract_schema(db_path):
                 }
                 data_type = (column["type"] or "").upper()
                 # Keep small, non-sensitive text domains available to the LLM.
-                if data_type in {"TEXT", "VARCHAR", "CHAR"} and not sensitive.search(column_name):
+                if data_type.startswith(("TEXT", "VARCHAR", "CHAR")) and not sensitive.search(column_name):
                     values = connection.execute(
                         f"SELECT DISTINCT {quote(column_name)} AS value "
                         f"FROM {table_sql_name} "
@@ -80,20 +80,15 @@ def extract_schema(db_path):
     }
 
 
-def reset_sandbox(db_name, data_dir) -> Path:
-    """Reset and return the working copy path for ``db_name``."""
-    # Re-copy the untouched source so all working edits are discarded.
-    source = Path(data_dir) / f"{db_name}.sqlite"
-    working = Path(data_dir) / f"{db_name}_working.sqlite"
-    shutil.copy2(source, working)
-    return working
-
-def provide_working(db_path):
+def provide_working(db_path, reset=False):
+    """Return the working path, optionally replacing it from the source."""
     source = Path(db_path)
-    working = source if source.stem.endswith("_working") else source.with_name(
-        f"{source.stem}_working{source.suffix}"
-    )
-    if not working.exists():
+    if source.parent.name == "working":
+        return source
+    working_dir = source.parent / "working"
+    working_dir.mkdir(exist_ok=True)
+    working = working_dir / f"{source.stem}_working{source.suffix}"
+    if reset or not working.exists():
         shutil.copy2(source, working)
     return working
 

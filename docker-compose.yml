@@ -46,7 +46,7 @@ services:
     command: ["ollama pull \"$$LLM_MODEL\""]
     restart: "no"
 
-  # Flask communicates with Neo4j and Ollama over the Compose network.
+  # Flask communicates with Neo4j and the configured cloud LLM.
   agent:
     build:
       context: .
@@ -56,7 +56,6 @@ services:
       - .env
     environment:
       NEO4J_HTTP_URL: http://neo4j:7474/db/neo4j/query/v2
-      OLLAMA_BASE_URL: http://ollama:11434/v1
       DATA_DIR: /app/data
     depends_on:
       neo4j:

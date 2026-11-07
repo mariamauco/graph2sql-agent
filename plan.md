@@ -5,18 +5,19 @@ Set up the Flask application and multi-service `docker-compose.yml` for Neo4j, O
     
 - **Acceptance Criteria:**
     - [x] `docker-compose.yml` runs services and persistent volumes.
-    - [x] Store the downloaded Spider release under `data/spider_databases/` and copy selected runtime databases to the `data/` root.
+    - [x] Store the downloaded Spider release under `data/spider_databases/`, copy selected runtime databases to the `data/` root, and keep working copies in `data/working/`.
     - [ ] Implement `db_service.py` with:
         - `extract_schema(db_path)`: Extracts tables (`sqlite_master`), columns/types/PKs (`PRAGMA table_info`), foreign keys (`PRAGMA foreign_key_list`), table row counts, and safe low-cardinality sample values.
         - `execute_read_sql(db_path, sql)`: Runs read-only `SELECT` queries with a timeout.
-        - `execute_write_sql(db_path, sql)`: Runs `INSERT`/`UPDATE`/`DELETE`/`ALTER` on a working copy of the `.sqlite` file so original benchmark files aren't corrupted.
+        - `provide_working(db_path, reset=False)`: Creates or returns `data/working/{db_name}_working.sqlite`; `reset=True` restores it from the original source.
+        - `execute_write_sql(db_path, sql)`: Runs `INSERT`/`UPDATE`/`DELETE`/`ALTER` on the working copy so original benchmark files aren't corrupted.
         - _(Stretch Hook)_ Accept an optional SQLAlchemy URI (`postgresql://...` or `mysql://...`) in `db_service.py` so a remotely hosted DB can be added from the UI later.
 
 ## issue 2 - setup flow
 Implement the **Setup Flow** (`use a db schema --> create graph --> ready`) and the subgraph retrieval logic over Neo4j's HTTP Query API v2 (`/db/neo4j/query/v2`).
     
 - **Acceptance Criteria:**
-    - [ ] Implement `run_cypher_http()` helper in `graph_service.py` communicating with Neo4j via HTTP `POST`.
+    - [ ] Implement `run_cypher_http()` helper in `graph_client.py` communicating with Neo4j via HTTP `POST`.
     - [ ] Implement `build_graph(db_name, schema_metadata)`: Creates `:Table` and `:Column` nodes (with data types, PK flags, aliases, and sample categorical values) and `:HAS_COLUMN` / `:FOREIGN_KEY` edges in Neo4j, plus a Full-Text search index.
     - [ ] Implement `get_subgraph(db_name, user_prompt, k=5)`:
         1. Queries the Neo4j Full-Text index using keywords from `user_prompt` to locate top-$k$ anchor `:Table` nodes.
@@ -30,11 +31,11 @@ Implement the **QA Mode Flow** (`prompt --> add graph state --> create sql --> e
 - **Acceptance Criteria:**
     - [ ] Configure LLM client wrapper supporting both local Ollama (`qwen2.5-coder:7b`) and OpenAI (`gpt-4o` / `gpt-4o-mini`).
     - [ ] Build `run_qa_flow(db_name, prompt)`:
-        1. Calls `graph_service.get_subgraph(db_name, prompt)` to get pruned tables, columns, sample values, and pre-computed `JOIN` paths.
+        1. Calls `graph_query.get_subgraph(db_name, prompt, k=5)` to get pruned tables, columns, sample values, and pre-computed `JOIN` paths.
         2. Prompts the LLM with the subgraph state to generate an executable SQLite `SELECT` query.
         3. Calls `db_service.execute_read_sql()` (with 1 automatic self-correction retry if SQLite returns a syntax/column error).
         4. Stores successful query as a `:VerifiedQuery` node in Neo4j for persistent learning.
-        5. Passes the **returned SQL data + subgraph state** to the LLM to synthesize the final natural language response.
+        5. Passes the **returned SQL data** to the LLM to synthesize the final natural language response.
     - [ ] Expose via `POST /api/agent/qa`.
 
 ## issue 4 - edit mode flow
@@ -66,5 +67,5 @@ Quantify how the Neo4j Graph-Assisted pipeline outperforms raw full-schema promp
     - [ ] Implement automated runner comparing:
         - **Test A (Baseline - Raw ChatGPT):** Passes the entire raw SQLite DDL schema in the prompt with no Neo4j graph.
         - **Test B (DB-Only Agent):** Agent inspects SQLite directly via tool calls without Neo4j pathfinding.
-        - **Test C (Neo4j Graph-Assisted Agent):** Uses `graph_service.get_subgraph()` with shortest-path `JOIN` hints, value profiling, and persistent query memory.
+        - **Test C (Neo4j Graph-Assisted Agent):** Uses `graph_query.get_subgraph()` with shortest-path `JOIN` hints, value profiling, and persistent query memory.
     - [ ] Log Prompt Tokens (**RQ1**), Multi-Table Join Execution Accuracy (**RQ2**), and End-to-End Latency (**RQ3**) via LangSmith (`LANGCHAIN_TRACING_V2=true`) and export a comparative CSV/chart for the final paper.
