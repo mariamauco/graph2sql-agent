@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <script src="https://unpkg.com/force-graph"></script>
   <script src="graph.js" defer></script>
+  <script src="agent.js" defer></script>
 </head>
 <body>
   <main class="shell">
@@ -36,6 +37,24 @@
         </div>
       </div>
       <div id="graph" aria-label="Database schema graph"></div>
+    </section>
+
+    <section class="panel agent-panel">
+      <div>
+        <p class="eyebrow">Agent chat</p>
+        <h2>Ask about the selected database</h2>
+      </div>
+      <div id="chat" class="chat-log" aria-live="polite">
+        <p class="chat-empty">Ask a question to see the SQL result and answer.</p>
+      </div>
+      <form id="agent-form" class="agent-form">
+        <label for="agent-prompt">Question</label>
+        <div class="agent-input">
+          <input id="agent-prompt" name="prompt" type="text" autocomplete="off"
+            placeholder="Which records should I look at?" required>
+          <button type="submit">Send</button>
+        </div>
+      </form>
     </section>
   </main>
   <script>
