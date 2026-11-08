@@ -25,6 +25,19 @@ def _client():
     )
 
 
+def _chat(messages, usage=None):
+    response = _client().chat.completions.create(model=settings.llm_model, messages=messages)
+    if usage is not None and response.usage:
+        usage["prompt_tokens"] += response.usage.prompt_tokens
+        usage["completion_tokens"] += response.usage.completion_tokens
+        usage["total_tokens"] += response.usage.total_tokens
+    return response.choices[0].message.content
+
+
+def _token_usage():
+    return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+
+
 def _sql_from_response(content, mode):
     # Remove optional model markdown so the result can be parsed or executed.
     text = re.sub(r"```(?:json|sql)?", "", content or "", flags=re.I).replace("```", "").strip()
@@ -47,7 +60,7 @@ def _sql_from_response(content, mode):
     return plan
 
 
-def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None):
+def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage=None):
     # Use a different output format for read-only questions and proposed edits.
     instruction = (
         "Return only one executable SQLite SELECT query."
@@ -59,61 +72,55 @@ def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None):
     )
     # QA can send a failed query and SQLite's error back for one repair attempt.
     repair = f"\nRepair this SQL: {failed_sql}\nSQLite error: {error}" if error else ""
-    response = _client().chat.completions.create(
-        model=settings.llm_model,
-        messages=[
-            {"role": "system", "content": instruction},
-            {"role": "user", "content": f"Question: {prompt}\nSchema context:\n{context}{repair}"},
-        ],
-    )
-    return _sql_from_response(response.choices[0].message.content, mode)
+    content = _chat([
+        {"role": "system", "content": instruction},
+        {"role": "user", "content": f"Question: {prompt}\nSchema context:\n{context}{repair}"},
+    ], usage)
+    return _sql_from_response(content, mode)
 
 
-def synthesize_answer(prompt, rows):
+def synthesize_answer(prompt, rows, usage=None):
     # Summarize only the first 50 result rows to keep the answer prompt compact.
-    response = _client().chat.completions.create(
-        model=settings.llm_model,
-        messages=[{"role": "user", "content": "\n".join([
+    content = _chat([{"role": "user", "content": "\n".join([
             "Answer the user's question using only these database results.",
             f"Question: {prompt}", f"Results: {json.dumps(rows[:50], default=str)}",
             "Be concise and do not invent values.",
-        ])}],
-    )
-    return response.choices[0].message.content.strip()
+    ])}], usage)
+    return content.strip()
 
 
-def _explain_edit(prompt, plan):
-    response = _client().chat.completions.create(
-        model=settings.llm_model,
-        messages=[
-            {"role": "system", "content": "Briefly explain what this proposed edit will change. Do not say it has already been applied."},
-            {"role": "user", "content": f"Request: {prompt}\nProposed edit: {plan}"},
-        ],
-    )
-    return response.choices[0].message.content.strip()
+def _explain_edit(prompt, plan, usage=None):
+    content = _chat([
+        {"role": "system", "content": "Briefly explain what this proposed edit will change. Do not say it has already been applied."},
+        {"role": "user", "content": f"Request: {prompt}\nProposed edit: {plan}"},
+    ], usage)
+    return content.strip()
 
 
 def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
     # Retrieve graph context before asking the model to generate SQL.
     started = time.perf_counter()
+    usage = _token_usage()
     db_path = settings.data_dir / (db_name if db_name.endswith(".sqlite") else f"{db_name}.sqlite")
     subgraph = get_subgraph(db_path.stem, prompt)
-    sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa")
+    sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa", usage=usage)
     retried = False
     try:
         # Execute against the sandbox copy; retry once if SQLite rejects the SQL.
         rows = execute_read_sql(db_path, sql)
     except sqlite3.Error as error:
         retried = True
-        sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa", error, sql)
+        sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa", error, sql, usage)
         rows = execute_read_sql(db_path, sql)
 
     # Store successful SQL as graph memory for later related questions.
     touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
     save_verified_query(db_path.stem, prompt, sql, touched)
+    answer = synthesize_answer(prompt, rows, usage)
     return {
-        "answer": synthesize_answer(prompt, rows), "sql": sql, "rows": rows, "subgraph": subgraph,
-        "telemetry": {"total_latency_ms": round((time.perf_counter() - started) * 1000, 2), "retried": retried},
+        "answer": answer, "sql": sql, "rows": rows, "subgraph": subgraph,
+        "telemetry": {"total_latency_ms": round((time.perf_counter() - started) * 1000, 2),
+                      "retried": retried, **usage},
     }
 
 
@@ -122,20 +129,22 @@ def run_edit_flow(db_name, prompt):
     global _pending_edit
 
     # Use the same subgraph context as QA, then save the proposed action for approval.
+    usage = _token_usage()
     db_path = settings.data_dir / (db_name if db_name.endswith(".sqlite") else f"{db_name}.sqlite")
     subgraph = get_subgraph(db_path.stem, prompt)
-    plan = _generate_sql(prompt, subgraph["prompt_context_str"], "edit")
+    plan = _generate_sql(prompt, subgraph["prompt_context_str"], "edit", usage=usage)
     if plan["kind"] == "semantic_join":
         # Build the join condition from the two table-column pairs in the plan.
         plan["join_condition"] = f"{plan['from_table']}.{plan['from_column']} = {plan['to_table']}.{plan['to_column']}"
     plan_summary = plan.get("summary", "")
-    plan["summary"] = _explain_edit(prompt, plan)
+    plan["summary"] = _explain_edit(prompt, plan, usage)
     _pending_edit = (db_path.stem, plan)
     return {
         "status": "awaiting_confirmation",
         "kind": plan["kind"], "summary": plan.get("summary", "Review this proposed change."),
         "plan_summary": plan_summary,
         "sql": plan.get("sql"), "join_condition": plan.get("join_condition"), "subgraph": subgraph,
+        "telemetry": usage,
     }
 
 

@@ -204,7 +204,7 @@ Maintain this flat, modular project structure:
 
 1. **Unified LLM Client:**
    - Use the `openai` Python SDK configured via `config.py`. The default provider is OpenAI-compatible Luna (`LLM_MODEL=gpt-6-luna`); omit `temperature` because Luna only supports its default value.
-   - QA telemetry currently reports total latency and whether the one SQLite repair retry was used. Token counts and LangSmith tracing are not implemented.
+   - QA telemetry reports total latency, retry status, and aggregated prompt/completion/total tokens from its model calls. Edit proposal telemetry reports the same token totals. Counts depend on the configured provider returning usage data; LangSmith tracing is not used.
 2. **Flow 1: Setup (`POST /api/setup`):**
    - Resolve the source SQLite file, call `graph_build.refresh_graph_from_db(db_name, db_path)` to read the working copy and synchronize Neo4j, then return graph elements and a schema summary. A cached graph artifact may be returned when present.
 3. **Flow 2: QA Mode (`POST /api/agent/qa`):**

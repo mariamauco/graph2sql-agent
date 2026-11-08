@@ -51,6 +51,16 @@ async function requestJson(url, options) {
   return {response, data: await readJson(response)};
 }
 
+function addDetails(entry, label, data) {
+  const details = document.createElement('details');
+  const summary = document.createElement('summary');
+  const content = document.createElement('pre');
+  summary.textContent = label;
+  content.textContent = JSON.stringify(data, null, 2);
+  details.append(summary, content);
+  entry.append(details);
+}
+
 async function buildGraph(dbName) {
   status.textContent = 'Building the schema graph...';
   try {
@@ -170,15 +180,10 @@ async function submitPrompt(event, {input, output, action, edit = false}) {
     addMessage('chat-answer', edit
       ? data.summary || 'Review the proposed change before applying it.'
       : data.answer || 'The agent returned no answer.');
-    const details = document.createElement('details');
-    const summary = document.createElement('summary');
-    summary.textContent = edit ? 'Proposed change' : 'SQL result';
-    const result = document.createElement('pre');
-    result.textContent = JSON.stringify(edit
+    addDetails(entry, edit ? 'Proposed change' : 'SQL result', edit
       ? {kind: data.kind, sql: data.sql, join_condition: data.join_condition}
-      : {sql: data.sql, rows: data.rows}, null, 2);
-    details.append(summary, result);
-    entry.append(details);
+      : {sql: data.sql, rows: data.rows});
+    if (data.telemetry) addDetails(entry, 'Telemetry', data.telemetry);
     if (edit) {
       const accept = document.createElement('button');
       accept.type = 'button';
@@ -200,16 +205,10 @@ async function submitPrompt(event, {input, output, action, edit = false}) {
           if (appliedResponse.ok) {
             accept.remove();
             if (applied.graph_updated) localStorage.removeItem(`graph2sql:${selectedDatabase}`);
-            const resultDetails = document.createElement('details');
-            const resultSummary = document.createElement('summary');
-            resultSummary.textContent = 'Applied change details';
-            const appliedResult = document.createElement('pre');
-            appliedResult.textContent = JSON.stringify({
+            addDetails(entry, 'Applied change details', {
               kind: applied.kind, sql: applied.sql, rows_affected: applied.rows_affected,
               graph_updated: applied.graph_updated, graph: applied.graph, graph_error: applied.graph_error
-            }, null, 2);
-            resultDetails.append(resultSummary, appliedResult);
-            entry.append(resultDetails);
+            });
             output.scrollTop = output.scrollHeight;
 
             const rebuilding = addMessage('chat-pending', 'Rebuilding the schema graph...');
