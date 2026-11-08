@@ -1,0 +1,1720 @@
+
+============ Graph baseline refresh ============
+{
+  "tables_count": 7,
+  "columns_count": 43,
+  "foreign_keys_count": 9,
+  "edges_count": 68
+}
+
+============ Before: working SQLite schema ============
+[
+  {
+    "name": "CLASS",
+    "columns": [
+      {
+        "name": "CLASS_CODE",
+        "type": "varchar(5)",
+        "primary_key": true
+      },
+      {
+        "name": "CRS_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_SECTION",
+        "type": "varchar(2)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_TIME",
+        "type": "varchar(20)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_ROOM",
+        "type": "varchar(8)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_NUM",
+        "type": "INT",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "PROF_NUM",
+        "to_col": "EMP_NUM"
+      },
+      {
+        "ref_table": "COURSE",
+        "from_col": "CRS_CODE",
+        "to_col": "CRS_CODE"
+      }
+    ]
+  },
+  {
+    "name": "COURSE",
+    "columns": [
+      {
+        "name": "CRS_CODE",
+        "type": "varchar(10)",
+        "primary_key": true
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "CRS_DESCRIPTION",
+        "type": "varchar(35)",
+        "primary_key": false
+      },
+      {
+        "name": "CRS_CREDIT",
+        "type": "float(8)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      }
+    ]
+  },
+  {
+    "name": "DEPARTMENT",
+    "columns": [
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": true
+      },
+      {
+        "name": "DEPT_NAME",
+        "type": "varchar(30)",
+        "primary_key": false
+      },
+      {
+        "name": "SCHOOL_CODE",
+        "type": "varchar(8)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_ADDRESS",
+        "type": "varchar(20)",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_EXTENSION",
+        "type": "varchar(4)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "EMP_NUM",
+        "to_col": "EMP_NUM"
+      }
+    ]
+  },
+  {
+    "name": "EMPLOYEE",
+    "columns": [
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": true
+      },
+      {
+        "name": "EMP_LNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_FNAME",
+        "type": "varchar(12)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_INITIAL",
+        "type": "varchar(1)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_JOBCODE",
+        "type": "varchar(5)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_HIREDATE",
+        "type": "datetime",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_DOB",
+        "type": "datetime",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": []
+  },
+  {
+    "name": "ENROLL",
+    "columns": [
+      {
+        "name": "CLASS_CODE",
+        "type": "varchar(5)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "ENROLL_GRADE",
+        "type": "varchar(50)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "STUDENT",
+        "from_col": "STU_NUM",
+        "to_col": "STU_NUM"
+      },
+      {
+        "ref_table": "CLASS",
+        "from_col": "CLASS_CODE",
+        "to_col": "CLASS_CODE"
+      }
+    ]
+  },
+  {
+    "name": "PROFESSOR",
+    "columns": [
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_OFFICE",
+        "type": "varchar(50)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_EXTENSION",
+        "type": "varchar(4)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_HIGH_DEGREE",
+        "type": "varchar(5)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      },
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "EMP_NUM",
+        "to_col": "EMP_NUM"
+      }
+    ]
+  },
+  {
+    "name": "STUDENT",
+    "columns": [
+      {
+        "name": "STU_NUM",
+        "type": "INT",
+        "primary_key": true
+      },
+      {
+        "name": "STU_LNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_FNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_INIT",
+        "type": "varchar(1)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_DOB",
+        "type": "datetime",
+        "primary_key": false
+      },
+      {
+        "name": "STU_HRS",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "STU_CLASS",
+        "type": "varchar(2)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_GPA",
+        "type": "float(8)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_TRANSFER",
+        "type": "numeric",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(18)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_PHONE",
+        "type": "varchar(4)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_NUM",
+        "type": "INT",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      }
+    ]
+  }
+]
+
+============ Before: Neo4j graph ============
+{
+  "tables": [
+    {
+      "name": "CLASS",
+      "columns": [
+        "PROF_NUM",
+        "CLASS_ROOM",
+        "CLASS_TIME",
+        "CLASS_SECTION",
+        "CRS_CODE",
+        "CLASS_CODE"
+      ]
+    },
+    {
+      "name": "COURSE",
+      "columns": [
+        "CRS_CREDIT",
+        "CRS_DESCRIPTION",
+        "DEPT_CODE",
+        "CRS_CODE"
+      ]
+    },
+    {
+      "name": "DEPARTMENT",
+      "columns": [
+        "DEPT_EXTENSION",
+        "DEPT_ADDRESS",
+        "EMP_NUM",
+        "SCHOOL_CODE",
+        "DEPT_NAME",
+        "DEPT_CODE"
+      ]
+    },
+    {
+      "name": "EMPLOYEE",
+      "columns": [
+        "EMP_DOB",
+        "EMP_HIREDATE",
+        "EMP_JOBCODE",
+        "EMP_INITIAL",
+        "EMP_FNAME",
+        "EMP_LNAME",
+        "EMP_NUM"
+      ]
+    },
+    {
+      "name": "ENROLL",
+      "columns": [
+        "ENROLL_GRADE",
+        "STU_NUM",
+        "CLASS_CODE"
+      ]
+    },
+    {
+      "name": "PROFESSOR",
+      "columns": [
+        "PROF_HIGH_DEGREE",
+        "PROF_EXTENSION",
+        "PROF_OFFICE",
+        "DEPT_CODE",
+        "EMP_NUM"
+      ]
+    },
+    {
+      "name": "STUDENT",
+      "columns": [
+        "PROF_NUM",
+        "STU_PHONE",
+        "DEPT_CODE",
+        "STU_TRANSFER",
+        "STU_GPA",
+        "STU_CLASS",
+        "STU_HRS",
+        "STU_DOB",
+        "STU_INIT",
+        "STU_FNAME",
+        "STU_LNAME",
+        "STU_NUM"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "type": "FOREIGN_KEY",
+      "from": "ENROLL.CLASS_CODE",
+      "to": "CLASS.CLASS_CODE",
+      "properties": {
+        "to_col": "CLASS_CODE",
+        "from_col": "CLASS_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "CLASS.CRS_CODE",
+      "to": "COURSE.CRS_CODE",
+      "properties": {
+        "to_col": "CRS_CODE",
+        "from_col": "CRS_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "COURSE.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "PROFESSOR.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "STUDENT.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "DEPARTMENT.EMP_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "EMP_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "PROFESSOR.EMP_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "EMP_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "CLASS.PROF_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "PROF_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "ENROLL.STU_NUM",
+      "to": "STUDENT.STU_NUM",
+      "properties": {
+        "to_col": "STU_NUM",
+        "from_col": "STU_NUM"
+      }
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_ROOM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_SECTION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_TIME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CRS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.PROF_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_CREDIT",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_DESCRIPTION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_ADDRESS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_EXTENSION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_NAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.SCHOOL_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_DOB",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_FNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_HIREDATE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_INITIAL",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_JOBCODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_LNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.CLASS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.ENROLL_GRADE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.STU_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_EXTENSION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_HIGH_DEGREE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_OFFICE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.PROF_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_CLASS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_DOB",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_FNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_GPA",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_HRS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_INIT",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_LNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_PHONE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_TRANSFER",
+      "properties": {}
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "CLASS",
+      "to": "COURSE",
+      "properties": {
+        "join_condition": "CLASS.CRS_CODE = COURSE.CRS_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "CLASS",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "CLASS.PROF_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "COURSE",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "COURSE.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "DEPARTMENT",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "DEPARTMENT.EMP_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "ENROLL",
+      "to": "CLASS",
+      "properties": {
+        "join_condition": "ENROLL.CLASS_CODE = CLASS.CLASS_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "ENROLL",
+      "to": "STUDENT",
+      "properties": {
+        "join_condition": "ENROLL.STU_NUM = STUDENT.STU_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "PROFESSOR",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "PROFESSOR.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "PROFESSOR",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "PROFESSOR.EMP_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "STUDENT",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "STUDENT.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "TOUCHES",
+      "from": "None.None",
+      "to": "STUDENT",
+      "properties": {}
+    }
+  ]
+}
+
+============ Source database SHA-256 before ============
+"5bf3ee598b9f10b4d9bef9a2d390f1391bccbcb64986c88241fad24452695d18"
+
+============ Edit proposal ============
+{
+  "status": "awaiting_confirmation",
+  "kind": "sql",
+  "summary": "This edit will create a table named `EDIT_FLOW_TEST` with an integer primary key column, `EDIT_TEST_ID`, and a text column, `EDIT_NOTE`.",
+  "plan_summary": "Creates EDIT_FLOW_TEST with an integer primary key and a text column.",
+  "sql": "CREATE TABLE EDIT_FLOW_TEST (EDIT_TEST_ID INTEGER PRIMARY KEY, EDIT_NOTE TEXT);",
+  "join_condition": null,
+  "context_tables": [
+    "CLASS",
+    "COURSE",
+    "DEPARTMENT",
+    "EMPLOYEE",
+    "ENROLL",
+    "PROFESSOR",
+    "STUDENT"
+  ]
+}
+
+============ Accepted edit result ============
+{
+  "status": "applied",
+  "kind": "sql",
+  "summary": "This edit will create a table named `EDIT_FLOW_TEST` with an integer primary key column, `EDIT_TEST_ID`, and a text column, `EDIT_NOTE`.",
+  "sql": "CREATE TABLE EDIT_FLOW_TEST (EDIT_TEST_ID INTEGER PRIMARY KEY, EDIT_NOTE TEXT);",
+  "rows_affected": 0,
+  "graph_updated": true,
+  "graph": {
+    "tables_count": 8,
+    "columns_count": 45,
+    "foreign_keys_count": 9,
+    "edges_count": 71
+  }
+}
+
+============ After: working SQLite schema ============
+[
+  {
+    "name": "CLASS",
+    "columns": [
+      {
+        "name": "CLASS_CODE",
+        "type": "varchar(5)",
+        "primary_key": true
+      },
+      {
+        "name": "CRS_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_SECTION",
+        "type": "varchar(2)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_TIME",
+        "type": "varchar(20)",
+        "primary_key": false
+      },
+      {
+        "name": "CLASS_ROOM",
+        "type": "varchar(8)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_NUM",
+        "type": "INT",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "PROF_NUM",
+        "to_col": "EMP_NUM"
+      },
+      {
+        "ref_table": "COURSE",
+        "from_col": "CRS_CODE",
+        "to_col": "CRS_CODE"
+      }
+    ]
+  },
+  {
+    "name": "COURSE",
+    "columns": [
+      {
+        "name": "CRS_CODE",
+        "type": "varchar(10)",
+        "primary_key": true
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "CRS_DESCRIPTION",
+        "type": "varchar(35)",
+        "primary_key": false
+      },
+      {
+        "name": "CRS_CREDIT",
+        "type": "float(8)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      }
+    ]
+  },
+  {
+    "name": "DEPARTMENT",
+    "columns": [
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": true
+      },
+      {
+        "name": "DEPT_NAME",
+        "type": "varchar(30)",
+        "primary_key": false
+      },
+      {
+        "name": "SCHOOL_CODE",
+        "type": "varchar(8)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_ADDRESS",
+        "type": "varchar(20)",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_EXTENSION",
+        "type": "varchar(4)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "EMP_NUM",
+        "to_col": "EMP_NUM"
+      }
+    ]
+  },
+  {
+    "name": "EDIT_FLOW_TEST",
+    "columns": [
+      {
+        "name": "EDIT_TEST_ID",
+        "type": "INTEGER",
+        "primary_key": true
+      },
+      {
+        "name": "EDIT_NOTE",
+        "type": "TEXT",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": []
+  },
+  {
+    "name": "EMPLOYEE",
+    "columns": [
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": true
+      },
+      {
+        "name": "EMP_LNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_FNAME",
+        "type": "varchar(12)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_INITIAL",
+        "type": "varchar(1)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_JOBCODE",
+        "type": "varchar(5)",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_HIREDATE",
+        "type": "datetime",
+        "primary_key": false
+      },
+      {
+        "name": "EMP_DOB",
+        "type": "datetime",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": []
+  },
+  {
+    "name": "ENROLL",
+    "columns": [
+      {
+        "name": "CLASS_CODE",
+        "type": "varchar(5)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "ENROLL_GRADE",
+        "type": "varchar(50)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "STUDENT",
+        "from_col": "STU_NUM",
+        "to_col": "STU_NUM"
+      },
+      {
+        "ref_table": "CLASS",
+        "from_col": "CLASS_CODE",
+        "to_col": "CLASS_CODE"
+      }
+    ]
+  },
+  {
+    "name": "PROFESSOR",
+    "columns": [
+      {
+        "name": "EMP_NUM",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(10)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_OFFICE",
+        "type": "varchar(50)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_EXTENSION",
+        "type": "varchar(4)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_HIGH_DEGREE",
+        "type": "varchar(5)",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      },
+      {
+        "ref_table": "EMPLOYEE",
+        "from_col": "EMP_NUM",
+        "to_col": "EMP_NUM"
+      }
+    ]
+  },
+  {
+    "name": "STUDENT",
+    "columns": [
+      {
+        "name": "STU_NUM",
+        "type": "INT",
+        "primary_key": true
+      },
+      {
+        "name": "STU_LNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_FNAME",
+        "type": "varchar(15)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_INIT",
+        "type": "varchar(1)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_DOB",
+        "type": "datetime",
+        "primary_key": false
+      },
+      {
+        "name": "STU_HRS",
+        "type": "INT",
+        "primary_key": false
+      },
+      {
+        "name": "STU_CLASS",
+        "type": "varchar(2)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_GPA",
+        "type": "float(8)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_TRANSFER",
+        "type": "numeric",
+        "primary_key": false
+      },
+      {
+        "name": "DEPT_CODE",
+        "type": "varchar(18)",
+        "primary_key": false
+      },
+      {
+        "name": "STU_PHONE",
+        "type": "varchar(4)",
+        "primary_key": false
+      },
+      {
+        "name": "PROF_NUM",
+        "type": "INT",
+        "primary_key": false
+      }
+    ],
+    "foreign_keys": [
+      {
+        "ref_table": "DEPARTMENT",
+        "from_col": "DEPT_CODE",
+        "to_col": "DEPT_CODE"
+      }
+    ]
+  }
+]
+
+============ After: Neo4j graph ============
+{
+  "tables": [
+    {
+      "name": "CLASS",
+      "columns": [
+        "PROF_NUM",
+        "CLASS_ROOM",
+        "CLASS_TIME",
+        "CLASS_SECTION",
+        "CRS_CODE",
+        "CLASS_CODE"
+      ]
+    },
+    {
+      "name": "COURSE",
+      "columns": [
+        "CRS_CREDIT",
+        "CRS_DESCRIPTION",
+        "DEPT_CODE",
+        "CRS_CODE"
+      ]
+    },
+    {
+      "name": "DEPARTMENT",
+      "columns": [
+        "DEPT_EXTENSION",
+        "DEPT_ADDRESS",
+        "EMP_NUM",
+        "SCHOOL_CODE",
+        "DEPT_NAME",
+        "DEPT_CODE"
+      ]
+    },
+    {
+      "name": "EDIT_FLOW_TEST",
+      "columns": [
+        "EDIT_NOTE",
+        "EDIT_TEST_ID"
+      ]
+    },
+    {
+      "name": "EMPLOYEE",
+      "columns": [
+        "EMP_DOB",
+        "EMP_HIREDATE",
+        "EMP_JOBCODE",
+        "EMP_INITIAL",
+        "EMP_FNAME",
+        "EMP_LNAME",
+        "EMP_NUM"
+      ]
+    },
+    {
+      "name": "ENROLL",
+      "columns": [
+        "ENROLL_GRADE",
+        "STU_NUM",
+        "CLASS_CODE"
+      ]
+    },
+    {
+      "name": "PROFESSOR",
+      "columns": [
+        "PROF_HIGH_DEGREE",
+        "PROF_EXTENSION",
+        "PROF_OFFICE",
+        "DEPT_CODE",
+        "EMP_NUM"
+      ]
+    },
+    {
+      "name": "STUDENT",
+      "columns": [
+        "PROF_NUM",
+        "STU_PHONE",
+        "DEPT_CODE",
+        "STU_TRANSFER",
+        "STU_GPA",
+        "STU_CLASS",
+        "STU_HRS",
+        "STU_DOB",
+        "STU_INIT",
+        "STU_FNAME",
+        "STU_LNAME",
+        "STU_NUM"
+      ]
+    }
+  ],
+  "relationships": [
+    {
+      "type": "FOREIGN_KEY",
+      "from": "ENROLL.CLASS_CODE",
+      "to": "CLASS.CLASS_CODE",
+      "properties": {
+        "to_col": "CLASS_CODE",
+        "from_col": "CLASS_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "CLASS.CRS_CODE",
+      "to": "COURSE.CRS_CODE",
+      "properties": {
+        "to_col": "CRS_CODE",
+        "from_col": "CRS_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "COURSE.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "PROFESSOR.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "STUDENT.DEPT_CODE",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {
+        "to_col": "DEPT_CODE",
+        "from_col": "DEPT_CODE"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "DEPARTMENT.EMP_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "EMP_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "PROFESSOR.EMP_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "EMP_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "CLASS.PROF_NUM",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {
+        "to_col": "EMP_NUM",
+        "from_col": "PROF_NUM"
+      }
+    },
+    {
+      "type": "FOREIGN_KEY",
+      "from": "ENROLL.STU_NUM",
+      "to": "STUDENT.STU_NUM",
+      "properties": {
+        "to_col": "STU_NUM",
+        "from_col": "STU_NUM"
+      }
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_ROOM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_SECTION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CLASS_TIME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.CRS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "CLASS",
+      "to": "CLASS.PROF_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_CREDIT",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.CRS_DESCRIPTION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "COURSE",
+      "to": "COURSE.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_ADDRESS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_EXTENSION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.DEPT_NAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "DEPARTMENT",
+      "to": "DEPARTMENT.SCHOOL_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EDIT_FLOW_TEST",
+      "to": "EDIT_FLOW_TEST.EDIT_NOTE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EDIT_FLOW_TEST",
+      "to": "EDIT_FLOW_TEST.EDIT_TEST_ID",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_DOB",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_FNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_HIREDATE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_INITIAL",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_JOBCODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_LNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "EMPLOYEE",
+      "to": "EMPLOYEE.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.CLASS_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.ENROLL_GRADE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "ENROLL",
+      "to": "ENROLL.STU_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.EMP_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_EXTENSION",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_HIGH_DEGREE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "PROFESSOR",
+      "to": "PROFESSOR.PROF_OFFICE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.DEPT_CODE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.PROF_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_CLASS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_DOB",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_FNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_GPA",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_HRS",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_INIT",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_LNAME",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_NUM",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_PHONE",
+      "properties": {}
+    },
+    {
+      "type": "HAS_COLUMN",
+      "from": "STUDENT",
+      "to": "STUDENT.STU_TRANSFER",
+      "properties": {}
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "CLASS",
+      "to": "COURSE",
+      "properties": {
+        "join_condition": "CLASS.CRS_CODE = COURSE.CRS_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "CLASS",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "CLASS.PROF_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "COURSE",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "COURSE.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "DEPARTMENT",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "DEPARTMENT.EMP_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "ENROLL",
+      "to": "CLASS",
+      "properties": {
+        "join_condition": "ENROLL.CLASS_CODE = CLASS.CLASS_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "ENROLL",
+      "to": "STUDENT",
+      "properties": {
+        "join_condition": "ENROLL.STU_NUM = STUDENT.STU_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "PROFESSOR",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "PROFESSOR.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "PROFESSOR",
+      "to": "EMPLOYEE",
+      "properties": {
+        "join_condition": "PROFESSOR.EMP_NUM = EMPLOYEE.EMP_NUM"
+      }
+    },
+    {
+      "type": "REFERENCES_TABLE",
+      "from": "STUDENT",
+      "to": "DEPARTMENT",
+      "properties": {
+        "join_condition": "STUDENT.DEPT_CODE = DEPARTMENT.DEPT_CODE"
+      }
+    },
+    {
+      "type": "TOUCHES",
+      "from": "None.None",
+      "to": "STUDENT",
+      "properties": {}
+    }
+  ]
+}
+
+============ Verification ============
+{
+  "working_database_has_test_table": true,
+  "neo4j_has_test_table": true,
+  "neo4j_schema_synced": true,
+  "source_database_unchanged": true,
+  "status": "PASS"
+}

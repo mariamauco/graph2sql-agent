@@ -5,6 +5,7 @@ from difflib import get_close_matches
 
 from config import settings
 from services.aliases_map import DB_ALIASES
+from services.db_service import extract_schema, provide_working
 from .graph_client import run_cypher_http
 
 
@@ -93,6 +94,33 @@ def _upsert_foreign_key(db_name, table_name, foreign_key):
 	)
 
 
+def _remove_stale_schema(db_name, metadata):
+	tables = metadata.get("tables", [])
+	table_ids = [f"{db_name}.{table['name']}" for table in tables]
+	column_ids = [
+		f"{db_name}.{table['name']}.{column['name']}"
+		for table in tables
+		for column in table.get("columns", [])
+	]
+	params = {"db_name": db_name, "table_ids": table_ids, "column_ids": column_ids}
+	run_cypher_http(
+		"MATCH (:Column {db_name: $db_name})-[r:FOREIGN_KEY]->() DELETE r",
+		{"db_name": db_name},
+	)
+	run_cypher_http(
+		"MATCH (:Table {db_name: $db_name})-[r:REFERENCES_TABLE]->() DELETE r",
+		{"db_name": db_name},
+	)
+	run_cypher_http(
+		"MATCH (c:Column {db_name: $db_name}) WHERE NOT (c.id IN $column_ids) DETACH DELETE c",
+		params,
+	)
+	run_cypher_http(
+		"MATCH (t:Table {db_name: $db_name}) WHERE NOT (t.id IN $table_ids) DETACH DELETE t",
+		params,
+	)
+
+
 def build_graph(db_name, metadata):
 	"""Create/update nodes, relationships, and the full-text index."""
 	cache_path = settings.data_dir / "working" / f"{db_name}_graph.json"
@@ -102,6 +130,7 @@ def build_graph(db_name, metadata):
 		pass
 
 	# Create nodes before relationships so every endpoint exists.
+	_remove_stale_schema(db_name, metadata)
 	upsert_database(db_name)
 	for table in metadata.get("tables", []):
 		upsert_table(db_name, table)
@@ -124,3 +153,10 @@ def build_graph(db_name, metadata):
 		"foreign_keys_count": len(foreign_keys),
 		"edges_count": len(tables) + columns + len(foreign_keys) * 2,
 	}
+
+
+def refresh_graph_from_db(db_name, db_path):
+	"""Re-extract the working database schema and synchronize its graph."""
+	working_path = provide_working(db_path)
+	metadata = extract_schema(working_path)
+	return metadata, build_graph(db_name, metadata)

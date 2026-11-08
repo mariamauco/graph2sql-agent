@@ -50,6 +50,7 @@ button { width: auto; min-width: 9rem; color: #fff; background: var(--accent); b
   margin-top: 0.5rem;
 }
 #graph canvas { display: block; max-width: 100%; }
+.graph-actions { display: flex; justify-content: flex-end; }
 .agent-panel { margin-top: 0; }
 .agent-form { display: flex; flex-direction: column; gap: 0.4rem; }
 .agent-input { display: flex; gap: 0.75rem; }

@@ -35,6 +35,9 @@
         </div>
       </div>
       <div id="graph" aria-label="Database schema graph"></div>
+      <div class="graph-actions">
+        <button id="reset-database" type="button">Reset database</button>
+      </div>
     </section>
 
     <div class="tab" role="tablist" aria-label="Agent mode">

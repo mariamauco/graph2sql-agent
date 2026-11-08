@@ -51,6 +51,25 @@ async function requestJson(url, options) {
   return {response, data: await readJson(response)};
 }
 
+async function buildGraph(dbName) {
+  status.textContent = 'Building the schema graph...';
+  try {
+    const {response, data} = await requestJson('api.php?action=setup', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({db_name: dbName})
+    });
+    status.textContent = data.status || data.error || 'Setup finished.';
+    if (!response.ok) return false;
+    localStorage.setItem(`graph2sql:${dbName}`, JSON.stringify(data));
+    renderGraph(data);
+    return true;
+  } catch {
+    status.textContent = 'The agent service is unavailable.';
+    return false;
+  }
+}
+
 async function loadDatabases() {
   try {
     const {response, data} = await requestJson('api.php?action=databases');
@@ -64,19 +83,31 @@ async function loadDatabases() {
 
 document.querySelector('#setup').addEventListener('click', async () => {
   if (!database.value) return;
-  status.textContent = 'Building the schema graph...';
+  buildGraph(database.value);
+});
+
+document.querySelector('#reset-database').addEventListener('click', async event => {
+  const dbName = database.value;
+  if (!dbName) return;
+  const button = event.currentTarget;
+  button.disabled = true;
+  status.textContent = 'Restoring the original database...';
   try {
-    const {response, data} = await requestJson('api.php?action=setup', {
+    const {response, data} = await requestJson('api.php?action=reset', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({db_name: database.value})
+      body: JSON.stringify({db_name: dbName})
     });
-    status.textContent = data.status || data.error || 'Setup finished.';
-    if (!response.ok) return;
-    localStorage.setItem(`graph2sql:${database.value}`, JSON.stringify(data));
-    renderGraph(data);
+    if (!response.ok) {
+      status.textContent = data.error || 'The database could not be reset.';
+      return;
+    }
+    localStorage.removeItem(`graph2sql:${dbName}`);
+    if (await buildGraph(dbName)) status.textContent = 'Database reset; graph rebuilt.';
   } catch {
     status.textContent = 'The agent service is unavailable.';
+  } finally {
+    button.disabled = false;
   }
 });
 
@@ -106,7 +137,8 @@ document.querySelectorAll('.tablinks').forEach(button => {
 async function submitPrompt(event, {input, output, action, edit = false}) {
   event.preventDefault();
   const prompt = input.value.trim();
-  if (!database.value || !prompt) return;
+  const selectedDatabase = database.value;
+  if (!selectedDatabase || !prompt) return;
 
   output.querySelector('.chat-empty')?.remove();
   const entry = document.createElement('div');
@@ -121,13 +153,13 @@ async function submitPrompt(event, {input, output, action, edit = false}) {
     return message;
   };
   addMessage('chat-question', prompt);
-  const pending = addMessage('chat-pending', edit ? 'Applying change...' : 'Thinking...');
+  const pending = addMessage('chat-pending', edit ? 'Preparing change proposal...' : 'Thinking...');
   input.disabled = true;
   try {
     const {response, data} = await requestJson(`api.php?action=${action}`, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({db_name: database.value, prompt})
+      body: JSON.stringify({db_name: selectedDatabase, prompt})
     });
     pending.remove();
     if (!response.ok) {
@@ -136,18 +168,79 @@ async function submitPrompt(event, {input, output, action, edit = false}) {
     }
 
     addMessage('chat-answer', edit
-      ? data.summary || 'The change was applied.'
+      ? data.summary || 'Review the proposed change before applying it.'
       : data.answer || 'The agent returned no answer.');
     const details = document.createElement('details');
     const summary = document.createElement('summary');
-    summary.textContent = edit ? 'Change details' : 'SQL result';
+    summary.textContent = edit ? 'Proposed change' : 'SQL result';
     const result = document.createElement('pre');
     result.textContent = JSON.stringify(edit
-      ? {sql: data.sql || data.sql_executed, rows_affected: data.rows_affected,
-        graph_updated: data.graph_updated ?? data.graph_synced}
+      ? {kind: data.kind, sql: data.sql, join_condition: data.join_condition}
       : {sql: data.sql, rows: data.rows}, null, 2);
     details.append(summary, result);
     entry.append(details);
+    if (edit) {
+      const accept = document.createElement('button');
+      accept.type = 'button';
+      accept.textContent = 'Accept change';
+      accept.addEventListener('click', async () => {
+        accept.disabled = true;
+        accept.textContent = 'Applying...';
+        try {
+          const {response: appliedResponse, data: applied} = await requestJson('api.php?action=edit_accept', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({db_name: selectedDatabase})
+          });
+          const appliedMessage = applied.graph_error
+            ? `The database change was applied, but graph sync failed: ${applied.graph_error}`
+            : applied.summary || 'Change applied.';
+          addMessage(appliedResponse.ok ? 'chat-answer' : 'chat-error',
+            appliedResponse.ok ? appliedMessage : applied.error || 'The change could not be applied.');
+          if (appliedResponse.ok) {
+            accept.remove();
+            if (applied.graph_updated) localStorage.removeItem(`graph2sql:${selectedDatabase}`);
+            const resultDetails = document.createElement('details');
+            const resultSummary = document.createElement('summary');
+            resultSummary.textContent = 'Applied change details';
+            const appliedResult = document.createElement('pre');
+            appliedResult.textContent = JSON.stringify({
+              kind: applied.kind, sql: applied.sql, rows_affected: applied.rows_affected,
+              graph_updated: applied.graph_updated, graph: applied.graph, graph_error: applied.graph_error
+            }, null, 2);
+            resultDetails.append(resultSummary, appliedResult);
+            entry.append(resultDetails);
+            output.scrollTop = output.scrollHeight;
+
+            const rebuilding = addMessage('chat-pending', 'Rebuilding the schema graph...');
+            try {
+              const {response: graphResponse, data: graphData} = await requestJson('api.php?action=setup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({db_name: selectedDatabase})
+              });
+              if (!graphResponse.ok) throw new Error(graphData.error || 'Graph rebuild failed.');
+              rebuilding.remove();
+              localStorage.setItem(`graph2sql:${selectedDatabase}`, JSON.stringify(graphData));
+              renderGraph(graphData);
+              addMessage('chat-answer', 'Schema graph rebuilt.');
+            } catch (error) {
+              rebuilding.remove();
+              localStorage.removeItem(`graph2sql:${selectedDatabase}`);
+              addMessage('chat-error', `Change applied, but the graph could not be rebuilt: ${error.message}`);
+            }
+          } else {
+            accept.disabled = false;
+            accept.textContent = 'Accept change';
+          }
+        } catch {
+          addMessage('chat-error', 'The agent service is unavailable.');
+          accept.disabled = false;
+          accept.textContent = 'Accept change';
+        }
+      });
+      entry.append(accept);
+    }
     output.scrollTop = output.scrollHeight;
   } catch {
     pending.remove();

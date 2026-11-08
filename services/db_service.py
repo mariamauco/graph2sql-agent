@@ -105,10 +105,12 @@ def execute_read_sql(db_path, sql) -> list[dict[str, Any]]:
 
 # Given a source path, execute the mutation on its working-copy database.
 def execute_write_sql(db_path, sql) -> int:
-    # Restrict this boundary to the mutation types allowed by Edit Mode.
-    if not re.match(r"^\s*(INSERT|UPDATE|DELETE|ALTER)\b", sql, re.I):
-        raise ValueError("Only INSERT, UPDATE, DELETE, and ALTER queries are allowed")
+    # Keep mutations on the working copy and reject unrelated SQL statements.
+    allowed = r"^\s*(INSERT|UPDATE|DELETE|ALTER\s+TABLE|CREATE\s+TABLE|DROP\s+TABLE)\b"
+    if not re.match(allowed, sql, re.I):
+        raise ValueError("Only INSERT, UPDATE, DELETE, and table DDL are allowed")
     working = provide_working(db_path)
     with sqlite3.connect(working, timeout=5) as connection:
+        connection.execute("PRAGMA foreign_keys = ON")
         cursor = connection.execute(sql)
         return max(cursor.rowcount, 0)

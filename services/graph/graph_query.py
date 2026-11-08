@@ -42,7 +42,7 @@ def _table_context(table_ids):
 	for row in rows:
 		table = tables.setdefault(row["id"], {
 			"id": row["id"], "name": row["name"], "aliases": row.get("aliases", []),
-			"row_count": row.get("row_count", 0), "columns": [],
+			"row_count": row.get("row_count", 0), "columns": [], "foreign_keys": [],
 		})
 		if row.get("column_name") is not None:
 			table["columns"].append({
@@ -50,13 +50,42 @@ def _table_context(table_ids):
 				"is_pk": row.get("is_pk", False), "is_nullable": row.get("is_nullable", True),
 				"sample_values": row.get("sample_values", []),
 			})
+	foreign_keys = run_cypher_http(
+		"MATCH (t:Table)-[:HAS_COLUMN]->(source:Column)-[:FOREIGN_KEY]->(target:Column) "
+		"WHERE t.id IN $table_ids "
+		"RETURN t.id AS table_id, source.name AS from_col, "
+		"target.table_name AS ref_table, target.name AS to_col",
+		{"table_ids": table_ids},
+	)
+	for foreign_key in foreign_keys:
+		table = tables.get(foreign_key["table_id"])
+		if table is not None:
+			table["foreign_keys"].append({
+				"from_col": foreign_key["from_col"],
+				"ref_table": foreign_key["ref_table"],
+				"to_col": foreign_key["to_col"],
+			})
 	return list(tables.values())
 
 
 def _context_string(tables, joins, verified):
-	# Keep the prompt context compact and explicit.
+	# Include constraints the model needs to produce safe, executable SQL.
 	lines = ["Tables:"]
-	lines.extend(f"- {t['name']}: {', '.join(c['name'] for c in t['columns'])}" for t in tables)
+	for table in tables:
+		lines.append(f"- {table['name']}:")
+		for column in table["columns"]:
+			flags = [column.get("type") or "type unspecified"]
+			if column.get("is_pk"):
+				flags.append("PRIMARY KEY")
+			flags.append("NULLABLE" if column.get("is_nullable", True) else "NOT NULL")
+			if column.get("sample_values"):
+				flags.append(f"samples: {column['sample_values']}")
+			lines.append(f"  - {column['name']} ({'; '.join(flags)})")
+		for foreign_key in table.get("foreign_keys", []):
+			lines.append(
+				f"  - FOREIGN KEY {foreign_key['from_col']} -> "
+				f"{foreign_key['ref_table']}.{foreign_key['to_col']}"
+			)
 	lines.append("Join paths:")
 	lines.extend(f"- {join['join_condition']}" for join in joins)
 	if verified:

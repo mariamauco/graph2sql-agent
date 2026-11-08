@@ -61,7 +61,7 @@ values are stored as `Column.sample_values`; sensitive columns are excluded.
 3. Maps matching columns to their parent tables and keeps the top `k` anchors.
 4. Falls back to all tables when the database has five or fewer tables or the search has no hits.
 5. Runs `allShortestPaths` across `REFERENCES_TABLE` and `SEMANTIC_JOIN` edges.
-6. Returns the selected tables, columns, sample values, explicit join conditions, and up to two verified queries.
+6. Returns selected tables, typed columns, primary-key flags, foreign-key details, sample values, explicit join conditions, and up to two verified queries.
 7. Formats the result as `prompt_context_str` for the LLM.
 
 Neo4j discovers the schema route. SQLite performs the actual row join later
@@ -88,6 +88,50 @@ examples.
 `add_semantic_join()` stores a user-confirmed relationship when SQLite does
 not contain the relevant foreign key. That edge is then available to future
 shortest-path searches.
+
+## Schema Refresh
+
+After a schema edit, `refresh_graph_from_db(db_name, db_path)` reads metadata from
+the working SQLite copy and passes it to `build_graph()`. The builder removes
+stale column and table nodes and recreates the schema foreign-key relationships
+before upserting the current schema. Semantic joins between tables that still
+exist and verified-query memory are preserved.
+
+Edit proposals are prepared by `run_edit_flow()` and do not mutate either
+store. `apply_edit()` runs only after confirmation. Data edits run against the
+working copy; schema edits refresh the graph; semantic-join proposals call
+`add_semantic_join()` directly.
+
+One pending proposal is held in process memory. It is lost if the agent restarts.
+
+```text
+User edit request
+    |
+    v
+Neo4j full-text search and anchor table selection
+    |
+    v
+allShortestPaths + table/column context (types, PKs, FKs, samples)
+    |
+    v
+LLM returns one SQL edit or semantic-join plan
+    |
+    v
+Show proposal to user; do not mutate yet
+    |
+    v
+User accepts proposal
+    |
+    +--> SQL DML/DDL runs on working SQLite copy
+    |       |
+    |       +--> ALTER/CREATE/DROP: re-extract schema and reconcile Neo4j
+    |       +--> INSERT/UPDATE/DELETE: report affected rows
+    |
+    +--> semantic join: save SEMANTIC_JOIN
+    |
+    v
+Return change summary, SQL/relationship, rows affected, and graph status
+```
 
 ## HTTP Client
 
