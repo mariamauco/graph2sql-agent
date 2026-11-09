@@ -15,17 +15,18 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from config import settings
-from services.agent_service import _complete, _generate_sql, _sql_from_response, _token_usage
+from services.agent_service import USE_VERIFIED_QUERIES, _complete, _generate_sql, _sql_from_response, _token_usage
 from services.graph.graph_build import refresh_graph_from_db
 from services.graph.graph_query import get_subgraph, save_verified_query
 from services.graph.graph_client import run_cypher_http
 
 TRAIN_FILE = ROOT / "data" / "spider_databases" / "train_spider.json"
 RESULTS_DIR = Path(__file__).parent / "results"
-JSON_FILE = RESULTS_DIR / f"benchmarks-{settings.llm_provider}.json"
-CSV_FILE = RESULTS_DIR / f"benchmarks-{settings.llm_provider}.csv"
-TEST_B_TRACE_FILE = RESULTS_DIR / f"test_b_traces-{settings.llm_provider}.json"
-TEST_C_TRACE_FILE = RESULTS_DIR / f"test_c_traces-{settings.llm_provider}.json"
+VQ_SUFFIX = "VQs" if USE_VERIFIED_QUERIES else "noVQs"
+JSON_FILE = RESULTS_DIR / f"benchmarks-{VQ_SUFFIX}.json"
+CSV_FILE = RESULTS_DIR / f"benchmarks-{VQ_SUFFIX}.csv"
+TEST_B_TRACE_FILE = RESULTS_DIR / f"test_b_traces-{VQ_SUFFIX}.json"
+TEST_C_TRACE_FILE = RESULTS_DIR / f"test_c_traces-{VQ_SUFFIX}.json"
 SCORING_VERSION = 2
 FIELDS = [
     "testmode", "status", "queryid", "db_id", "query", "question",
@@ -349,7 +350,7 @@ def test_c(query_id, example, db_path):
     graph_name = f"benchmark_{db_path.stem}"
     trace = {"queryid": query_id, "db_id": example["db_id"], "question": example["question"], "events": []}
     try:
-        subgraph = get_subgraph(graph_name, example["question"])
+        subgraph = get_subgraph(graph_name, example["question"], USE_VERIFIED_QUERIES)
         trace["tables"] = [table["name"] for table in subgraph["tables"]]
         trace["join_paths"] = subgraph["join_paths"]
         sql = _generate_sql(
@@ -379,7 +380,7 @@ def test_c(query_id, example, db_path):
     trace["expected_rows"] = expected_rows[:100]
     trace["accuracy"] = accuracy
     _save_trace(TEST_C_TRACE_FILE, trace)
-    if accuracy:
+    if accuracy and USE_VERIFIED_QUERIES:
         touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
         save_verified_query(graph_name, example["question"], sql, touched)
 

@@ -112,7 +112,7 @@ def _context_string(tables, joins, verified, date_related=False):
 	return "\n".join(lines)
 
 
-def get_subgraph(db_name, prompt):
+def get_subgraph(db_name, prompt, use_verified_queries=True):
 	# Use all tables for small schemas; search only larger schemas.
 	all_tables = run_cypher_http(
 		"MATCH (t:Table {db_name: $db_name}) RETURN t.id AS id ORDER BY t.name",
@@ -148,7 +148,7 @@ def get_subgraph(db_name, prompt):
 		"WITH q, max(q.created_at) AS created_at ORDER BY created_at DESC "
 		"RETURN q.prompt AS prompt, q.sql AS sql LIMIT 2",
 		{"table_ids": table_ids},
-	)
+	) if use_verified_queries else []
 	return {
 		"tables": tables, "join_paths": joins, "verified_queries": verified,
 		"prompt_context_str": _context_string(

@@ -19,6 +19,7 @@ from services.graph.graph_query import (
 
 # Hold the one proposed edit until it is accepted.
 _pending_edit = None
+USE_VERIFIED_QUERIES = True
 
 
 def _client():
@@ -201,7 +202,7 @@ def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
     started = time.perf_counter()
     usage = _token_usage()
     db_path = settings.data_dir / (db_name if db_name.endswith(".sqlite") else f"{db_name}.sqlite")
-    subgraph = get_subgraph(db_path.stem, prompt)
+    subgraph = get_subgraph(db_path.stem, prompt, USE_VERIFIED_QUERIES)
     sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa", usage=usage)
     retried = False
     try:
@@ -218,7 +219,8 @@ def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
 
     # Store successful SQL as graph memory for later related questions.
     touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
-    save_verified_query(db_path.stem, prompt, sql, touched)
+    if USE_VERIFIED_QUERIES:
+        save_verified_query(db_path.stem, prompt, sql, touched)
     answer = synthesize_answer(prompt, rows, usage)
     return {
         "answer": answer, "sql": sql, "rows": rows, "subgraph": subgraph,
@@ -234,7 +236,7 @@ def run_edit_flow(db_name, prompt):
     # Use the same subgraph context as QA, then save the proposed action for approval.
     usage = _token_usage()
     db_path = settings.data_dir / (db_name if db_name.endswith(".sqlite") else f"{db_name}.sqlite")
-    subgraph = get_subgraph(db_path.stem, prompt)
+    subgraph = get_subgraph(db_path.stem, prompt, USE_VERIFIED_QUERIES)
     plan = _generate_sql(prompt, subgraph["prompt_context_str"], "edit", usage=usage)
     if plan["kind"] == "semantic_join":
         # Build the join condition from the two table-column pairs in the plan.
