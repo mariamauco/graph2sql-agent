@@ -8,7 +8,7 @@ from .graph_client import run_cypher_http
 
 def is_date_related_question(prompt):
 	return bool(re.search(
-		r"\b(date|time|day|month|year|recent|latest|oldest|before|after|since|until|"
+		r"\b(date|time|day|month|year|recent|recently|latest|oldest|before|after|since|until|"
 		r"january|february|march|april|may|june|july|august|september|october|november|december|"
 		r"(?:19|20)\d{2})\b",
 		prompt, re.I,
@@ -100,7 +100,12 @@ def _context_string(tables, joins, verified, date_related=False):
 				f"{foreign_key['ref_table']}.{foreign_key['to_col']}"
 			)
 	lines.append("Join paths:")
-	lines.extend(f"- {join['join_condition']}" for join in joins)
+	seen_joins = set()
+	for join in joins:
+		condition = join["join_condition"]
+		if condition not in seen_joins:
+			lines.append(f"- {condition}")
+			seen_joins.add(condition)
 	if verified:
 		lines.append("Verified queries:")
 		lines.extend(f"- {query['prompt']}: {query['sql']}" for query in verified)

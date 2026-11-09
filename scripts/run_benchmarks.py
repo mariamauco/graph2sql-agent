@@ -15,17 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from config import settings
-from services.agent_service import _client, _generate_sql, _sql_from_response, _token_usage
+from services.agent_service import _complete, _generate_sql, _sql_from_response, _token_usage
 from services.graph.graph_build import refresh_graph_from_db
 from services.graph.graph_query import get_subgraph, save_verified_query
 from services.graph.graph_client import run_cypher_http
 
 TRAIN_FILE = ROOT / "data" / "spider_databases" / "train_spider.json"
 RESULTS_DIR = Path(__file__).parent / "results"
-JSON_FILE = RESULTS_DIR / "benchmarks.json"
-CSV_FILE = RESULTS_DIR / "benchmarks.csv"
-TEST_B_TRACE_FILE = RESULTS_DIR / "test_b_traces.json"
-TEST_C_TRACE_FILE = RESULTS_DIR / "test_c_traces.json"
+JSON_FILE = RESULTS_DIR / f"benchmarks-{settings.llm_provider}.json"
+CSV_FILE = RESULTS_DIR / f"benchmarks-{settings.llm_provider}.csv"
+TEST_B_TRACE_FILE = RESULTS_DIR / f"test_b_traces-{settings.llm_provider}.json"
+TEST_C_TRACE_FILE = RESULTS_DIR / f"test_c_traces-{settings.llm_provider}.json"
 SCORING_VERSION = 2
 FIELDS = [
     "testmode", "status", "queryid", "db_id", "query", "question",
@@ -236,13 +236,10 @@ def test_b(query_id, example, db_path):
 
     # Require one inspection first, then let the model inspect or produce final SQL.
     for call_number in range(3):
-        response = _client().chat.completions.create(
-            model=settings.llm_model,
+        response = _complete(
             messages=messages,
             tools=tools,
             tool_choice="required" if call_number == 0 else "auto",
-            parallel_tool_calls=False,
-            reasoning_effort="none",
         )
         if response.usage:
             usage["prompt_tokens"] += response.usage.prompt_tokens
@@ -258,9 +255,18 @@ def test_b(query_id, example, db_path):
                 messages.append({"role": "assistant", "content": message.content or ""})
             break
 
+        assistant_tool_calls = []
+        for call in message.tool_calls:
+            serialized_call = {
+                "id": call.id, "type": "function",
+                "function": {"name": call.function.name, "arguments": call.function.arguments},
+            }
+            if getattr(call, "extra_content", None):
+                serialized_call["extra_content"] = call.extra_content
+            assistant_tool_calls.append(serialized_call)
         messages.append({
             "role": "assistant", "content": message.content,
-            "tool_calls": [call.model_dump(exclude_none=True) for call in message.tool_calls],
+            "tool_calls": assistant_tool_calls,
         })
         for tool_call in message.tool_calls:
             sql = ""
@@ -286,12 +292,27 @@ def test_b(query_id, example, db_path):
     # If the third call was still an inspection, request the final SQL without tools.
     if generated_sql is None:
         messages.append({"role": "system", "content": "Return one read-only SQLite query starting with SELECT or WITH."})
-        response = _client().chat.completions.create(model=settings.llm_model, messages=messages)
+        response = _complete(messages)
         if response.usage:
             usage["prompt_tokens"] += response.usage.prompt_tokens
             usage["completion_tokens"] += response.usage.completion_tokens
             usage["total_tokens"] += response.usage.total_tokens
-        generated_sql = _sql_from_response(response.choices[0].message.content, "qa")
+        for _ in range(3):
+            try:
+                generated_sql = _sql_from_response(response.choices[0].message.content, "qa")
+                break
+            except ValueError:
+                messages.extend([
+                    {"role": "assistant", "content": response.choices[0].message.content or ""},
+                    {"role": "user", "content": "Return only one executable SQLite query starting with SELECT or WITH. No explanation."},
+                ])
+                response = _complete(messages)
+                if response.usage:
+                    usage["prompt_tokens"] += response.usage.prompt_tokens
+                    usage["completion_tokens"] += response.usage.completion_tokens
+                    usage["total_tokens"] += response.usage.total_tokens
+        else:
+            raise ValueError("The model did not return a read-only SQLite query")
 
     error = ""
     try:
@@ -331,7 +352,9 @@ def test_c(query_id, example, db_path):
         subgraph = get_subgraph(graph_name, example["question"])
         trace["tables"] = [table["name"] for table in subgraph["tables"]]
         trace["join_paths"] = subgraph["join_paths"]
-        sql = _generate_sql(example["question"], subgraph["prompt_context_str"], "qa", usage=usage)
+        sql = _generate_sql(
+            example["question"], subgraph["prompt_context_str"], "qa", usage=usage, trace=trace
+        )
     except Exception as exc:
         trace["events"].append({"type": "generation_error", "error": str(exc)})
         _save_trace(TEST_C_TRACE_FILE, trace)

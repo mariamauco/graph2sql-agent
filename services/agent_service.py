@@ -4,9 +4,11 @@ import json
 import re
 import sqlite3
 import time
+from types import SimpleNamespace
 from typing import Any
 
 from openai import OpenAI
+import requests
 
 from config import settings
 from services.db_service import execute_read_sql, execute_write_sql
@@ -20,15 +22,98 @@ _pending_edit = None
 
 
 def _client():
-    # Both configured providers use the OpenAI-compatible chat completions API.
+    if settings.llm_provider == "gemini":
+        return OpenAI(
+            api_key=settings.gemini_api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+        )
     return OpenAI(
         api_key="ollama" if settings.llm_provider == "ollama" else settings.openai_api_key,
         base_url=settings.ollama_base_url if settings.llm_provider == "ollama" else settings.openai_base_url,
     )
 
 
+def _complete(messages, tools=None, tool_choice="auto"):
+    if settings.llm_provider != "claude":
+        options = {"tools": tools, "tool_choice": tool_choice} if tools else {}
+        if tools and settings.llm_provider != "gemini":
+            options.update(reasoning_effort="none", parallel_tool_calls=False)
+        client = _client()
+        if tools and settings.llm_provider == "gemini":
+            raw = client.chat.completions.with_raw_response.create(
+                model=settings.llm_model, messages=messages, **options
+            ).http_response.json()
+            result = raw["choices"][0]["message"]
+            calls = [SimpleNamespace(
+                id=call["id"], type="function", extra_content=call.get("extra_content"),
+                function=SimpleNamespace(**call["function"]),
+            ) for call in result.get("tool_calls", [])]
+            usage = SimpleNamespace(**raw["usage"]) if raw.get("usage") else None
+            return SimpleNamespace(
+                choices=[SimpleNamespace(message=SimpleNamespace(
+                    content=result.get("content"), tool_calls=calls or None,
+                ))], usage=usage,
+            )
+        return client.chat.completions.create(
+            model=settings.llm_model, messages=messages, **options
+        )
+
+    system = "\n".join(m["content"] for m in messages if m["role"] == "system")
+    claude_messages = []
+    for message in messages:
+        role = message["role"]
+        if role == "system":
+            continue
+        if role == "tool":
+            content = [{"type": "tool_result", "tool_use_id": message["tool_call_id"],
+                        "content": message["content"]}]
+            role = "user"
+        elif role == "assistant" and message.get("tool_calls"):
+            content = ([{"type": "text", "text": message["content"]}]
+                       if message.get("content") else [])
+            content.extend({"type": "tool_use", "id": call["id"],
+                            "name": call["function"]["name"],
+                            "input": json.loads(call["function"]["arguments"])}
+                           for call in message["tool_calls"])
+        else:
+            content = message.get("content") or ""
+        if claude_messages and claude_messages[-1]["role"] == role:
+            previous = claude_messages[-1]["content"]
+            claude_messages[-1]["content"] = (previous if isinstance(previous, list) else [
+                {"type": "text", "text": previous}
+            ]) + (content if isinstance(content, list) else [{"type": "text", "text": content}])
+        else:
+            claude_messages.append({"role": role, "content": content})
+
+    body = {"model": settings.llm_model, "max_tokens": 4096, "messages": claude_messages}
+    if system:
+        body["system"] = system
+    if tools:
+        body["tools"] = [{"name": tool["function"]["name"],
+                          "description": tool["function"].get("description", ""),
+                          "input_schema": tool["function"]["parameters"]} for tool in tools]
+        body["tool_choice"] = {"type": "any" if tool_choice == "required" else "auto"}
+    response = requests.post(
+        f"{settings.anthropic_base_url.rstrip('/')}/messages",
+        headers={"x-api-key": settings.anthropic_api_key,
+                 "anthropic-version": "2023-06-01"}, json=body, timeout=120,
+    )
+    response.raise_for_status()
+    result = response.json()
+    text = "\n".join(block["text"] for block in result["content"] if block["type"] == "text")
+    calls = [SimpleNamespace(
+        id=block["id"], type="function",
+        function=SimpleNamespace(name=block["name"], arguments=json.dumps(block["input"])),
+    ) for block in result["content"] if block["type"] == "tool_use"]
+    usage = SimpleNamespace(prompt_tokens=result["usage"]["input_tokens"],
+                            completion_tokens=result["usage"]["output_tokens"],
+                            total_tokens=result["usage"]["input_tokens"] + result["usage"]["output_tokens"])
+    message = SimpleNamespace(content=text, tool_calls=calls or None)
+    return SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=usage)
+
+
 def _chat(messages, usage=None):
-    response = _client().chat.completions.create(model=settings.llm_model, messages=messages)
+    response = _complete(messages)
     if usage is not None and response.usage:
         usage["prompt_tokens"] += response.usage.prompt_tokens
         usage["completion_tokens"] += response.usage.completion_tokens
@@ -64,7 +149,7 @@ def _sql_from_response(content, mode):
     return plan
 
 
-def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage=None):
+def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage=None, trace=None):
     # Use a different output format for read-only questions and proposed edits.
     instruction = (
         "Return one executable, read-only SQLite query starting with SELECT or WITH. "
@@ -83,10 +168,13 @@ def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage
         )
     # QA can send a failed query and SQLite's error back for one repair attempt.
     repair = f"\nRepair this SQL: {failed_sql}\nSQLite error: {error}" if error else ""
-    content = _chat([
+    messages = [
         {"role": "system", "content": instruction},
         {"role": "user", "content": f"Question: {prompt}\nSchema context:\n{context}{repair}"},
-    ], usage)
+    ]
+    if trace is not None:
+        trace["prompt"] = messages
+    content = _chat(messages, usage)
     return _sql_from_response(content, mode)
 
 

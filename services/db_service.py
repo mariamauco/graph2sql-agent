@@ -47,8 +47,9 @@ def extract_schema(db_path):
                     ).fetchall()
                     for value in values:
                         sample = str(value["value"])
-                        if re.match(r"^\d{1,2}/\d{1,2}/\d{4}(?: \d{1,2}:\d{2}:\d{2})?$", sample):
-                            column_data["date_format"] = "M/D/YYYY" + (" HH:MM:SS" if " " in sample else "")
+                        if re.match(r"^\d{1,2}/\d{1,2}/\d{4}(?: \d{1,2}:\d{2}(?::\d{2})?)?$", sample):
+                            time_format = " HH:MM:SS" if sample.count(":") == 2 else " HH:MM" if " " in sample else ""
+                            column_data["date_format"] = "M/D/YYYY" + time_format
                             break
                         if re.match(r"^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$", sample):
                             column_data["date_format"] = "YYYY-MM-DD" + (" HH:MM:SS" if len(sample) > 10 else "")
