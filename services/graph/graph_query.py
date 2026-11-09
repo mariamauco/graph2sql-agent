@@ -6,6 +6,15 @@ import re
 from .graph_client import run_cypher_http
 
 
+def is_date_related_question(prompt):
+	return bool(re.search(
+		r"\b(date|time|day|month|year|recent|latest|oldest|before|after|since|until|"
+		r"january|february|march|april|may|june|july|august|september|october|november|december|"
+		r"(?:19|20)\d{2})\b",
+		prompt, re.I,
+	))
+
+
 def _search_query(prompt):
 	# Keep stop words and Lucene punctuation out of the full-text query.
 	stop_words = {"a", "an", "and", "are", "for", "from", "how", "is", "of", "the", "to", "what"}
@@ -35,7 +44,8 @@ def _table_context(table_ids):
 		"MATCH (t:Table) WHERE t.id IN $table_ids OPTIONAL MATCH (t)-[:HAS_COLUMN]->(c:Column) "
 		"RETURN t.id AS id, t.name AS name, t.aliases AS aliases, t.row_count AS row_count, "
 		"c.name AS column_name, c.data_type AS data_type, c.is_pk AS is_pk, "
-		"c.is_nullable AS is_nullable, c.sample_values AS sample_values ORDER BY t.name, c.name",
+		"c.is_nullable AS is_nullable, c.sample_values AS sample_values, "
+		"c.date_format AS date_format ORDER BY t.name, c.name",
 		{"table_ids": table_ids},
 	)
 	tables = {}
@@ -49,6 +59,7 @@ def _table_context(table_ids):
 				"name": row["column_name"], "type": row.get("data_type", ""),
 				"is_pk": row.get("is_pk", False), "is_nullable": row.get("is_nullable", True),
 				"sample_values": row.get("sample_values", []),
+				"date_format": row.get("date_format"),
 			})
 	foreign_keys = run_cypher_http(
 		"MATCH (t:Table)-[:HAS_COLUMN]->(source:Column)-[:FOREIGN_KEY]->(target:Column) "
@@ -68,7 +79,7 @@ def _table_context(table_ids):
 	return list(tables.values())
 
 
-def _context_string(tables, joins, verified):
+def _context_string(tables, joins, verified, date_related=False):
 	# Include constraints the model needs to produce safe, executable SQL.
 	lines = ["Tables:"]
 	for table in tables:
@@ -80,6 +91,8 @@ def _context_string(tables, joins, verified):
 			flags.append("NULLABLE" if column.get("is_nullable", True) else "NOT NULL")
 			if column.get("sample_values"):
 				flags.append(f"samples: {column['sample_values']}")
+			if date_related and column.get("date_format"):
+				flags.append(f"date format: {column['date_format']}")
 			lines.append(f"  - {column['name']} ({'; '.join(flags)})")
 		for foreign_key in table.get("foreign_keys", []):
 			lines.append(
@@ -94,7 +107,7 @@ def _context_string(tables, joins, verified):
 	return "\n".join(lines)
 
 
-def get_subgraph(db_name, prompt, k=5):
+def get_subgraph(db_name, prompt):
 	# Use all tables for small schemas; search only larger schemas.
 	all_tables = run_cypher_http(
 		"MATCH (t:Table {db_name: $db_name}) RETURN t.id AS id ORDER BY t.name",
@@ -107,8 +120,8 @@ def get_subgraph(db_name, prompt, k=5):
 			"CALL db.index.fulltext.queryNodes('schema_index', $query) YIELD node, score "
 			"WHERE node.db_name = $db_name OPTIONAL MATCH (owner:Table)-[:HAS_COLUMN]->(node) "
 			"WITH coalesce(owner, node) AS table, max(score) AS score WHERE table IS NOT NULL "
-			"RETURN table.id AS id ORDER BY score DESC LIMIT $limit",
-			{"query": _search_query(prompt), "db_name": db_name, "limit": k},
+			"RETURN table.id AS id ORDER BY score DESC",
+			{"query": _search_query(prompt), "db_name": db_name},
 		)
 		table_ids = [row["id"] for row in hits] or [row["id"] for row in all_tables]
 
@@ -133,7 +146,9 @@ def get_subgraph(db_name, prompt, k=5):
 	)
 	return {
 		"tables": tables, "join_paths": joins, "verified_queries": verified,
-		"prompt_context_str": _context_string(tables, joins, verified),
+		"prompt_context_str": _context_string(
+			tables, joins, verified, is_date_related_question(prompt)
+		),
 	}
 
 

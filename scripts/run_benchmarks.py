@@ -3,6 +3,7 @@
 import argparse
 import csv
 import json
+import re
 import shutil
 import sqlite3
 import sys
@@ -23,12 +24,14 @@ TRAIN_FILE = ROOT / "data" / "spider_databases" / "train_spider.json"
 RESULTS_DIR = Path(__file__).parent / "results"
 JSON_FILE = RESULTS_DIR / "benchmarks.json"
 CSV_FILE = RESULTS_DIR / "benchmarks.csv"
-TRACE_FILE = RESULTS_DIR / "test_b_traces.json"
+TEST_B_TRACE_FILE = RESULTS_DIR / "test_b_traces.json"
+TEST_C_TRACE_FILE = RESULTS_DIR / "test_c_traces.json"
+SCORING_VERSION = 2
 FIELDS = [
     "testmode", "status", "queryid", "db_id", "query", "question",
     "question_toks_length", "query_toks_length", "latency_ms",
     "prompt_tokens", "completion_tokens", "total_tokens", "accuracy",
-    "generated_sql", "graph_tables_count", "test_c_version", "error",
+    "generated_sql", "graph_tables_count", "test_c_version", "scoring_version", "error",
 ]
 
 
@@ -65,13 +68,13 @@ def _save_results(rows):
         } for row in rows)
 
 
-def _save_test_b_trace(trace):
-    """Save one trace per Test B query, replacing an earlier attempt."""
+def _save_trace(path, trace):
+    """Save one trace per query, replacing an earlier attempt."""
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
-    traces = json.loads(TRACE_FILE.read_text()) if TRACE_FILE.exists() else []
+    traces = json.loads(path.read_text()) if path.exists() and path.stat().st_size else []
     traces = [row for row in traces if row["queryid"] != trace["queryid"]]
     traces.append(trace)
-    TRACE_FILE.write_text(json.dumps(traces, indent=2, default=str))
+    path.write_text(json.dumps(traces, indent=2, default=str))
 
 
 def flush_memory(db_name):
@@ -135,6 +138,41 @@ def _execute(db_path, sql):
         return connection.execute(sql).fetchall()
 
 
+def _count_tie_rows(db_path, gold_sql):
+    """Return every row tied for the best COUNT(*) group in a LIMIT 1 gold query."""
+    match = re.match(
+        r"\s*SELECT\s+(?P<columns>.+?)\s+FROM\s+(?P<source>.+?)\s+"
+        r"GROUP\s+BY\s+(?P<group>.+?)\s+ORDER\s+BY\s+COUNT\s*\(\s*\*\s*\)\s*"
+        r"(?P<direction>ASC|DESC)?\s+LIMIT\s+1\s*;?\s*$",
+        gold_sql, re.I | re.S,
+    )
+    if not match:
+        return None
+
+    columns, source, group = (match.group(name).strip() for name in ("columns", "source", "group"))
+    best = "MAX" if (match.group("direction") or "").upper() == "DESC" else "MIN"
+    sql = (
+        f"SELECT {columns} FROM {source} GROUP BY {group} "
+        f"HAVING COUNT(*) = (SELECT {best}(n) FROM "
+        f"(SELECT COUNT(*) AS n FROM {source} GROUP BY {group}))"
+    )
+    try:
+        return set(_execute(db_path, sql))
+    except sqlite3.Error:
+        return None
+
+
+def _execution_accuracy(db_path, predicted, expected, gold_sql):
+    """Score exact rows, allowing all equally best COUNT(*) rows for LIMIT 1 gold."""
+    predicted, expected = set(predicted), set(expected)
+    if predicted == expected:
+        return 1.0
+    tied_rows = _count_tie_rows(db_path, gold_sql)
+    if tied_rows is not None and expected and expected.issubset(tied_rows):
+        return float(predicted == tied_rows)
+    return 0.0
+
+
 def test_a(query_id, example, db_path):
     """Use the raw SQLite schema to generate and evaluate one SQL query."""
     # Count tokens reported by the model for all calls made by Test A.
@@ -153,7 +191,7 @@ def test_a(query_id, example, db_path):
     # Spider execution accuracy compares unordered result sets.
     try:
         expected = set(_execute(db_path, example["query"]))
-        accuracy = float(not error and predicted == expected)
+        accuracy = 0.0 if error else _execution_accuracy(db_path, predicted, expected, example["query"])
     except sqlite3.Error as exc:
         accuracy, error = 0.0, error or f"Gold SQL failed: {exc}"
 
@@ -264,13 +302,13 @@ def test_b(query_id, example, db_path):
 
     try:
         expected = set(_execute(db_path, example["query"]))
-        accuracy = float(not error and predicted == expected)
+        accuracy = 0.0 if error else _execution_accuracy(db_path, predicted, expected, example["query"])
     except sqlite3.Error as exc:
         accuracy, error = 0.0, error or f"Gold SQL failed: {exc}"
 
     trace["events"].append({"type": "final_sql", "sql": generated_sql})
     trace["accuracy"] = accuracy
-    _save_test_b_trace(trace)
+    _save_trace(TEST_B_TRACE_FILE, trace)
 
     return {
         "testmode": "test_b", "status": "completed", "queryid": query_id,
@@ -288,18 +326,36 @@ def test_c(query_id, example, db_path):
     started = time.perf_counter()
     usage = _token_usage()
     graph_name = f"benchmark_{db_path.stem}"
-    subgraph = get_subgraph(graph_name, example["question"])
-    sql = _generate_sql(example["question"], subgraph["prompt_context_str"], "qa", usage=usage)
+    trace = {"queryid": query_id, "db_id": example["db_id"], "question": example["question"], "events": []}
+    try:
+        subgraph = get_subgraph(graph_name, example["question"])
+        trace["tables"] = [table["name"] for table in subgraph["tables"]]
+        trace["join_paths"] = subgraph["join_paths"]
+        sql = _generate_sql(example["question"], subgraph["prompt_context_str"], "qa", usage=usage)
+    except Exception as exc:
+        trace["events"].append({"type": "generation_error", "error": str(exc)})
+        _save_trace(TEST_C_TRACE_FILE, trace)
+        raise
+    trace["events"].append({"type": "generated_sql", "sql": sql})
     error = ""
     try:
-        predicted = set(_execute(db_path, sql))
+        predicted_rows = _execute(db_path, sql)
+        predicted = set(predicted_rows)
+        trace["events"].append({"type": "execution_result", "row_count": len(predicted_rows), "rows": predicted_rows[:100]})
     except sqlite3.Error as exc:
         predicted, error = set(), str(exc)
+        trace["events"].append({"type": "execution_error", "error": error})
     try:
-        expected = set(_execute(db_path, example["query"]))
-        accuracy = float(not error and predicted == expected)
+        expected_rows = _execute(db_path, example["query"])
+        expected = set(expected_rows)
+        accuracy = 0.0 if error else _execution_accuracy(db_path, predicted, expected, example["query"])
     except sqlite3.Error as exc:
         accuracy, error = 0.0, error or f"Gold SQL failed: {exc}"
+        expected_rows = []
+    trace["gold_sql"] = example["query"]
+    trace["expected_rows"] = expected_rows[:100]
+    trace["accuracy"] = accuracy
+    _save_trace(TEST_C_TRACE_FILE, trace)
     if accuracy:
         touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
         save_verified_query(graph_name, example["question"], sql, touched)
@@ -324,8 +380,9 @@ def evaluate(n, testmode="test_a"):
     completed = {
         _key(row) for row in rows
         if row.get("status") != "missing_database"
+        and str(row.get("scoring_version")) == str(SCORING_VERSION)
         and (testmode != "test_c" or (
-            row.get("test_c_version") == 3 and row.get("graph_tables_count")
+            row.get("test_c_version") == 5 and row.get("graph_tables_count")
         ))
     }
     copied = set()
@@ -373,9 +430,10 @@ def evaluate(n, testmode="test_a"):
                 }
             if testmode == "test_c":
                 row["graph_tables_count"] = graph_table_counts.get(example["db_id"])
-                row["test_c_version"] = 3
+                row["test_c_version"] = 5
 
         # Replace any earlier missing marker if the row is retried after data is added.
+        row["scoring_version"] = SCORING_VERSION
         rows = [saved for saved in rows if _key(saved) != key]
         rows.append(row)
         completed.add(key)

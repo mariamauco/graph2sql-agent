@@ -51,6 +51,9 @@ The graph contains:
 Table and column aliases are generated from identifier words and the shared
 `services/aliases_map.py` abbreviation dictionary. Safe low-cardinality text
 values are stored as `Column.sample_values`; sensitive columns are excluded.
+Date-like columns also store a compact `date_format` hint inferred from up to
+20 non-null values. Date hints are included in the LLM context only for
+date-related questions and are refreshed with the schema graph.
 
 ## Query Flow
 

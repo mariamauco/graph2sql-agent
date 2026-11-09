@@ -152,6 +152,7 @@ Maintain this flat, modular project structure:
      SELECT DISTINCT "{col}" FROM "{table}" WHERE "{col}" IS NOT NULL LIMIT 11;
      ```
      If the returned count is between $1$ and $10$, attach those values as `sample_values` on the column metadata.
+   - For date/time columns (by declared type or column name), inspect up to 20 non-null values and store a recognized compact `date_format` on the column metadata. Include this hint in the LLM context only for date-related questions.
 3. **Stretch Goal Hook (Remote DB URI):**
    - If `db_identifier` starts with `postgresql://`, `mysql://`, or `sqlite:///`, use `sqlalchemy.inspect(engine)` to produce the exact same metadata dictionary format as the local SQLite extractor.
 
@@ -173,7 +174,7 @@ Maintain this flat, modular project structure:
    - **Nodes:**
      - `(:Database {name})`
      - `(:Table {id, db_name, name, aliases, row_count, ddl_summary})` where `id = f"{db_name}.{table_name}"`
-     - `(:Column {id, db_name, table_name, name, data_type, is_pk, is_nullable, sample_values, aliases})` where `id = f"{db_name}.{table_name}.{col_name}"`
+     - `(:Column {id, db_name, table_name, name, data_type, is_pk, is_nullable, sample_values, aliases, date_format})` where `id = f"{db_name}.{table_name}.{col_name}"`
      - `(:VerifiedQuery {id, db_name, prompt, sql, created_at})`
    - **Relationships:**
      - `(:Database)-[:HAS_TABLE]->(:Table)`
@@ -350,7 +351,7 @@ The benchmark script evaluates three modes across Spider benchmark questions and
 - **`test_b` (DB-Only Agent):** No Neo4j graph. The agent first calls a `list_tables` / `describe_tables` inspection step against SQLite before generating SQL.
 - **`test_c` (Neo4j Graph-Assisted Agent):** Full pipeline using `graph_query.get_subgraph()` with Full-Text search, `allShortestPaths` join chains, column distinct value samples, and `:VerifiedQuery` few-shot memory.
 
-**Execution Accuracy (EX) Rule:** Compare the result set of the generated SQL (`set(tuple(row) for row in pred_rows)`) against the ground-truth Spider SQL result set on the same `.sqlite` database.
+**Execution Accuracy (EX) Rule:** Compare unordered result sets on the same `.sqlite` database. For a gold query that groups rows and uses `ORDER BY COUNT(*) LIMIT 1`, treat all groups tied for the best count as acceptable, since SQLite may return any one of them without a tie-breaker.
 
 ---
 

@@ -59,7 +59,8 @@ def upsert_column(db_name, table_name, column):
 	return run_cypher_http(
 		"MERGE (c:Column {id: $id}) SET c.db_name = $db_name, c.table_name = $table_name, "
 		"c.name = $name, c.data_type = $data_type, c.is_pk = $is_pk, "
-		"c.is_nullable = $is_nullable, c.sample_values = $sample_values, c.aliases = $aliases "
+		"c.is_nullable = $is_nullable, c.sample_values = $sample_values, c.aliases = $aliases, "
+		"c.date_format = $date_format "
 		"WITH c MATCH (t:Table {id: $table_id}) MERGE (t)-[:HAS_COLUMN]->(c)",
 		{
 			"id": f"{db_name}.{table_name}.{column['name']}", "db_name": db_name,
@@ -68,6 +69,7 @@ def upsert_column(db_name, table_name, column):
 			"is_pk": column.get("is_pk", column.get("pk", False)),
 			"is_nullable": column.get("is_nullable", not column.get("notnull", False)),
 			"sample_values": samples, "aliases": get_aliases(column["name"]),
+			"date_format": column.get("date_format"),
 			"table_id": f"{db_name}.{table_name}",
 		},
 	)

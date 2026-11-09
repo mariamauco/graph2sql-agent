@@ -11,7 +11,9 @@ from openai import OpenAI
 from config import settings
 from services.db_service import execute_read_sql, execute_write_sql
 from services.graph.graph_build import refresh_graph_from_db
-from services.graph.graph_query import add_semantic_join, get_subgraph, save_verified_query
+from services.graph.graph_query import (
+    add_semantic_join, get_subgraph, is_date_related_question, save_verified_query,
+)
 
 # Hold the one proposed edit until it is accepted.
 _pending_edit = None
@@ -65,13 +67,20 @@ def _sql_from_response(content, mode):
 def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage=None):
     # Use a different output format for read-only questions and proposed edits.
     instruction = (
-        "Return one executable, read-only SQLite query starting with SELECT or WITH."
+        "Return one executable, read-only SQLite query starting with SELECT or WITH. "
+        "Return only requested columns; don't include helper or aggregate columns unless asked."
         if mode == "qa" else
         'Return one JSON plan: {"kind":"sql","sql":"...","summary":"..."} '
         'or {"kind":"semantic_join","from_table":"...","from_column":"...",'
         '"to_table":"...","to_column":"...","description":"..."}. '
         "SQL must be one INSERT, UPDATE, DELETE, ALTER TABLE, CREATE TABLE, or DROP TABLE."
     )
+    if mode == "qa" and is_date_related_question(prompt):
+        instruction += (
+            " For date filters, follow any DATE FORMAT shown in the schema context. "
+            "Use SQLite date functions only when the stored format is compatible; "
+            "otherwise filter using the stored text format."
+        )
     # QA can send a failed query and SQLite's error back for one repair attempt.
     repair = f"\nRepair this SQL: {failed_sql}\nSQLite error: {error}" if error else ""
     content = _chat([
