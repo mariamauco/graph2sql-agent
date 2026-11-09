@@ -95,10 +95,11 @@ def provide_working(db_path, reset=False):
 def execute_read_sql(db_path, sql) -> list[dict[str, Any]]:
     """Execute a read-only query against the working database."""
     # Keep this helper read-only; the timeout also limits lock waiting.
-    if not sql.lstrip().lower().startswith("select"):
+    if not sql.lstrip().lower().startswith(("select", "with")):
         raise ValueError("Only SELECT queries are allowed")
     working = provide_working(db_path)
     with sqlite3.connect(working, timeout=5) as connection:
+        connection.execute("PRAGMA query_only = ON")
         connection.row_factory = sqlite3.Row
         return [dict(row) for row in connection.execute(sql)]
 

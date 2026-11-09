@@ -42,10 +42,12 @@ def _sql_from_response(content, mode):
     # Remove optional model markdown so the result can be parsed or executed.
     text = re.sub(r"```(?:json|sql)?", "", content or "", flags=re.I).replace("```", "").strip()
     if mode == "qa":
-        # QA is read-only and accepts only a SELECT statement.
-        match = re.search(r"\bSELECT\b.*", text, re.I | re.S)
+        # Preserve CTEs: a read-only query may start with WITH and end in SELECT.
+        match = re.match(r"(?:WITH|SELECT)\b.*", text, re.I | re.S)
         if not match:
-            raise ValueError("The model did not return a SELECT query")
+            match = re.search(r"\bSELECT\b.*", text, re.I | re.S)
+        if not match:
+            raise ValueError("The model did not return a SELECT or WITH query")
         return match.group(0).strip().rstrip(";") + ";"
 
     # Edit responses are plans: either an allowed SQL operation or a graph join.
@@ -63,7 +65,7 @@ def _sql_from_response(content, mode):
 def _generate_sql(prompt, context, mode="qa", error=None, failed_sql=None, usage=None):
     # Use a different output format for read-only questions and proposed edits.
     instruction = (
-        "Return only one executable SQLite SELECT query."
+        "Return one executable, read-only SQLite query starting with SELECT or WITH."
         if mode == "qa" else
         'Return one JSON plan: {"kind":"sql","sql":"...","summary":"..."} '
         'or {"kind":"semantic_join","from_table":"...","from_column":"...",'
@@ -111,7 +113,11 @@ def answer_question(db_name: str, prompt: str, **kwargs: Any) -> dict[str, Any]:
     except sqlite3.Error as error:
         retried = True
         sql = _generate_sql(prompt, subgraph["prompt_context_str"], "qa", error, sql, usage)
-        rows = execute_read_sql(db_path, sql)
+        try:
+            rows = execute_read_sql(db_path, sql)
+        except sqlite3.Error as retry_error:
+            retry_error.generated_sql = sql
+            raise
 
     # Store successful SQL as graph memory for later related questions.
     touched = [table["id"] for table in subgraph["tables"] if table["name"].lower() in sql.lower()]
