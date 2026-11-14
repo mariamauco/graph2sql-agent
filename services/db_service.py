@@ -40,6 +40,20 @@ def extract_schema(db_path):
                     "is_nullable": not bool(column["notnull"]),
                 }
                 data_type = (column["type"] or "").upper()
+                if "DATE" in data_type or "TIME" in data_type or re.search(r"date|time", column_name, re.I):
+                    values = connection.execute(
+                        f"SELECT DISTINCT {quote(column_name)} AS value "
+                        f"FROM {table_sql_name} WHERE {quote(column_name)} IS NOT NULL LIMIT 20"
+                    ).fetchall()
+                    for value in values:
+                        sample = str(value["value"])
+                        if re.match(r"^\d{1,2}/\d{1,2}/\d{4}(?: \d{1,2}:\d{2}(?::\d{2})?)?$", sample):
+                            time_format = " HH:MM:SS" if sample.count(":") == 2 else " HH:MM" if " " in sample else ""
+                            column_data["date_format"] = "M/D/YYYY" + time_format
+                            break
+                        if re.match(r"^\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}:\d{2})?$", sample):
+                            column_data["date_format"] = "YYYY-MM-DD" + (" HH:MM:SS" if len(sample) > 10 else "")
+                            break
                 # Keep small, non-sensitive text domains available to the LLM.
                 if data_type.startswith(("TEXT", "VARCHAR", "CHAR")) and not sensitive.search(column_name):
                     values = connection.execute(
@@ -95,10 +109,11 @@ def provide_working(db_path, reset=False):
 def execute_read_sql(db_path, sql) -> list[dict[str, Any]]:
     """Execute a read-only query against the working database."""
     # Keep this helper read-only; the timeout also limits lock waiting.
-    if not sql.lstrip().lower().startswith("select"):
+    if not sql.lstrip().lower().startswith(("select", "with")):
         raise ValueError("Only SELECT queries are allowed")
     working = provide_working(db_path)
     with sqlite3.connect(working, timeout=5) as connection:
+        connection.execute("PRAGMA query_only = ON")
         connection.row_factory = sqlite3.Row
         return [dict(row) for row in connection.execute(sql)]
 
